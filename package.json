@@ -1,0 +1,42 @@
+{
+  "name": "wc2019",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": {},
+  "author": "Jake Sower",
+  "license": "CC-BY-NC-4.0",
+  "scripts": {
+    "build-js": "webpack --mode=production",
+    "watch-js": "webpack --watch --mode=development",
+    "build-sass": "mkdirp dist/styles && node-sass -r assets/styles/main.scss --output-style=compressed -o dist/styles",
+    "watch-sass": "mkdirp dist/styles && node-sass -wr assets/styles/main.scss --output-style=compressed -o dist/styles",
+    "watch": "concurrently \"npm run watch-js\" \"npm run watch-sass\"",
+    "start": "node ./server.js",
+    "test": "tsc && ava",
+    "test-watch": "tsc && ava -w"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.1.7",
+    "@types/mocha": "^5.2.6",
+    "@types/sqlite3": "^3.1.5",
+    "ava": "^1.4.1",
+    "concurrently": "^4.1.0",
+    "mkdirp": "^0.5.1",
+    "node-mocks-http": "^1.7.5",
+    "ts-node": "^8.1.0",
+    "typescript": "^3.4.5"
+  },
+  "dependencies": {
+    "sqlite3": "^4.0.8"
+  },
+  "ava": {
+    "compileEnhancements": false,
+    "extensions": [
+      "ts"
+    ],
+    "require": [
+      "ts-node/register"
+    ],
+    "files": "test/*.ts"
+  }
+}

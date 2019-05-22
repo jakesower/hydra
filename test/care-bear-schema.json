@@ -1,0 +1,53 @@
+{
+  "resources": {
+    "bears": {
+      "attributes": {
+        "name": { "type": "string" },
+        "gender": { "type": "string" },
+        "belly_badge": { "type": "string" },
+        "fur_color": { "type": "string" }
+      },
+      "relationships": {
+        "home": {
+          "type": "homes",
+          "cardinality": "one",
+          "inverse": "bears"
+        },
+        "powers": {
+          "type": "powers",
+          "cardinality": "many",
+          "inverse": "bears"
+        }
+      }
+    },
+
+    "homes": {
+      "attributes": {
+        "name": { "type": "string" },
+        "location": { "type": "string" },
+        "caring_meter": { "type": "float" }
+      },
+      "relationships": {
+        "bears": {
+          "type": "bears",
+          "cardinality": "many",
+          "inverse": "home"
+        }
+      }
+    },
+
+    "powers": {
+      "attributes": {
+        "name": { "type": "string" },
+        "description": { "type": "text" }
+      },
+      "relationships": {
+        "bears": {
+          "type": "bears",
+          "cardinality": "many",
+          "inverse": "powers"
+        }
+      }
+    }
+  }
+}
