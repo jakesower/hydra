@@ -3,7 +3,7 @@ import { Either } from './lib/either';
 
 export type RequestHandler = (request: IncomingMessage, schema: Schema) => Promise<Either<HydraError, QueryGraph>>;
 export type Querier = (query: QueryGraph, schema: Schema) => Promise<Either<HydraError, ResultGraph>>;
-export type Responder = (response: Either<HydraError, ResultGraph>, schema: Schema) => Promise<HydraResponse>;
+export type Responder = (results: Either<HydraError, ResultGraph>, schema: Schema) => Promise<HydraResponse>;
 
 export interface QueryGraph {
   cardinality: 'one' | 'many',

@@ -9,6 +9,7 @@ interface Eith<E, O> {
   hasValue(value: O): boolean;
   getOkValue(): O,
   getErrValue(): E,
+  split<T>(errFn: (val: E) => T, okFn: (val: O) => T): T,
 }
 
 
@@ -25,6 +26,10 @@ class EitherOk<E, O> implements Eith<E, O> {
 
   chain<T>(fn: (value: O) => Either<E, T>): Either<E, T> {
     return fn(this.value);
+  }
+
+  split<T>(_errFn: (val: E) => T, okFn: (val: O) => T): T {
+    return okFn(this.value);
   }
 
   mapErr<T>(_fn: (value: E) => T): Either<T, O> {
@@ -61,6 +66,10 @@ class EitherErr<E, O> implements Eith<E, O> {
 
   chain<T>(_fn: (value: O) => Either<E, T>): Either<E, T> {
     return new EitherErr<E, T>(this.value);
+  }
+
+  split<T>(errFn: (val: E) => T, _okFn: (val: O) => T): T {
+    return errFn(this.value);
   }
 
   mapErr<T>(fn: (value: E) => T): Either<T, O> {
