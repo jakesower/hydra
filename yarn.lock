@@ -292,6 +292,10 @@
   version "4.1.7"
   resolved "https://registry.yarnpkg.com/@types/chai/-/chai-4.1.7.tgz#1b8e33b61a8c09cbe1f85133071baa0dbf9fa71a"
 
+"@types/ejs@^2.6.3":
+  version "2.6.3"
+  resolved "https://registry.yarnpkg.com/@types/ejs/-/ejs-2.6.3.tgz#b6509e9925d7eb5e95c8c73b6492e5baae7c1e6a"
+
 "@types/events@*":
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/@types/events/-/events-3.0.0.tgz#2862f3f58a9a7f7c3e78d79f130dd4d71c25c2a7"
@@ -1063,6 +1067,10 @@ ecc-jsbn@~0.1.1:
   dependencies:
     jsbn "~0.1.0"
     safer-buffer "^2.1.0"
+
+ejs@^2.6.1:
+  version "2.6.1"
+  resolved "https://registry.yarnpkg.com/ejs/-/ejs-2.6.1.tgz#498ec0d495655abc6f23cd61868d926464071aa0"
 
 emittery@^0.4.1:
   version "0.4.1"

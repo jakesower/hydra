@@ -89,7 +89,7 @@ test('queries a valid request for a set of resources', async t => {
   });
 });
 
-test.only('queries through a many-to-one join', async t => {
+test('queries through a many-to-one join', async t => {
   const q: QueryGraph = {
     type: 'bears',
     cardinality: 'one',

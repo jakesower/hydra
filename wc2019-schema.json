@@ -1,0 +1,42 @@
+{
+  "title": "World Cup 2019",
+  "resources": {
+    "players": {
+      "attributes": {
+        "name": {
+          "type": "string"
+        },
+        "group_bracket": {
+          "type": "text"
+        },
+        "goal_bracket": {
+          "type": "text"
+        },
+        "knockout_bracket": {
+          "type": "text"
+        }
+      },
+      "relationships": {
+        "game": {
+          "type": "games",
+          "cardinality": "one",
+          "inverse": "players"
+        }
+      }
+    },
+    "games": {
+      "attributes": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "relationships": {
+        "players": {
+          "type": "players",
+          "cardinality": "many",
+          "inverse": "game"
+        }
+      }
+    }
+  }
+}

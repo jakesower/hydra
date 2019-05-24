@@ -1,0 +1,30 @@
+<html>
+  <head>
+    <title>Hydra API</title>
+  </head>
+
+  <body>
+    <h1><%= schema.title %></h1>
+
+    <%
+      const getType = x => Array.isArray(x) ? 'array' : (x === Object(x) ? 'object' : 'string');
+      const renderObj = obj => `<ul>${Object.keys(obj).map(k => renderResource(obj[k], k)).join('')}</ul>`;
+      const renderAry = ary => `${ary.map(renderResource).join('')}`;
+      const renderStr = str => str;
+      const renderResource = (node, field = 'root') => {
+        switch (getType(node)) {
+          case 'array':
+            return `<li>${field}: <ul>${renderAry(node)}</ul></li>`;
+            break;
+          case 'object':
+            return `<li>${field}: ${renderObj(node)}</li>`;
+            break;
+          default:
+            return `<li>${field}: ${renderStr(node)}</li>`;
+        }
+      };
+    %>
+
+    <%- `<ul>${renderResource(results)}</ul>`; %>
+  </body>
+</html>

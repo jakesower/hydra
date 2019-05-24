@@ -40,7 +40,10 @@ export function hydra(
         })
         .then(r => responder(r, schema))
         .then(outcome => sendResponse(outcome, res))
-        .catch(_ => sendResponse({ code: 500, headers: {}, body: '' }, res));
+        .catch(err => {
+          console.error(err);
+          sendResponse({ code: 500, headers: {}, body: '' }, res);
+        });
 
     } catch (err) {
       return sendResponse({ code: 500, headers: {}, body: '' }, res);
@@ -110,7 +113,10 @@ function selectResponder(responders: { [k: string]: Responder }, acceptString: s
 
 
 function selectRequestHandler(requestHandlers: { [k: string]: RequestHandler }, contentType: string): RequestHandler | null {
-  const handler = Object.keys(requestHandlers).find(k => matchesType(contentType, k));
+  const handler = Object.keys(requestHandlers).find(k => {
+    const [type, subType] = k.split('/');
+    return matchesType(contentType, { type, subType });
+  });
 
   return handler ? requestHandlers[handler] : null;
 }

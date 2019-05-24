@@ -11,7 +11,6 @@ export function SqliteQuerier(db: Database) {
 
     return buildResults(queryGraph, results);
 
-    // helper functions
 
     function buildQuery(rootGraph: QueryGraph) {
       const go = (graph: QueryGraph, path: (number|string)[]) => {
@@ -80,7 +79,11 @@ export function SqliteQuerier(db: Database) {
 
           const relExtracters = Object.keys(graph.relationships).reduce((acc, relName, idx) => {
             const rel = graph.relationships[relName];
-            const base = curVal ? curVal : (rel.cardinality === 'many' ? [] : curVal);
+
+            const base = (rel.cardinality === 'many') ?
+              (curVal ? curVal[relName] : []) :
+              null;
+
             const obj = {
               type: rel.type,
               id: row[`${table}$${idx}$$id`],
@@ -134,23 +137,12 @@ export function SqliteQuerier(db: Database) {
         throw 'not supported';
       }
 
-      const base = `INNER JOIN ${foreignType} AS ${foreignTableName} ON`
+      const base = `INNER JOIN ${foreignType} AS ${foreignTableName} ON`;
       return localDef.cardinality === 'many' ?
         `${base} ${foreignTableName}.${localType}_id = ${localTableName}.id` :
         `${base} ${localTableName}.${foreignType}_id = ${foreignTableName}.id`;
     }
 
-
-    // relationships go from the root out (affects one to many relationships)
-    // function link(localRel, localTableName, foreignTableName) {
-    //   const inverseRel = schema.resources[localRel.type].relationships[localRel.inverse];
-    //   const localLinkKey = `${localRel.type}_id`;
-    //   const inverseLinkKey = `${inverseRel.type}_id`;
-
-    //   return localRel.cardinality === 'many' ?
-    //     foreignTableName[inverseLinkKey] :
-    //     localTableName[localLinkKey];
-    // }
 
     function flattenQueryGraph(graph: QueryGraph): QueryGraph[] {
       return [
@@ -172,18 +164,5 @@ export function SqliteQuerier(db: Database) {
 
       return flatWithPath(graph, []).reduce((acc, [g, p]) => reducer(acc, g, p), init);
     }
-
-
-  //   function mapQueryGraph<T>(
-  //     graph: QueryGraph,
-  //     fn: (graph: QueryGraph, path: number[]) => T,
-  //   ): T[] {
-  //     const flatWithPath = (g, p) => [
-  //       [g, p],
-  //       ...Object.values(g.relationships).flatMap((rel, idx) => flatWithPath(rel, [...p, idx]))
-  //     ];
-
-  //     return flatWithPath(graph, []).reduce((acc, [g, p]) => reducer(acc, g, p), init);
-  //   }
   }
 }

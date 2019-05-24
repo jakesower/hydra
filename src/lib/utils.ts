@@ -89,6 +89,15 @@ export function overPath(obj, path, fn) {
 }
 
 
+export function omitKeys<T>(obj: { [k: string]: T }, nix: string[]): { [k: string]: T } {
+  let out = {};
+  for (let key of Object.keys(obj)) {
+    if (!nix.includes(key)) { out[key] = obj[key]; }
+  }
+  return out;
+}
+
+
 export function pipe(fns: ((x: any) => any)[]): (x: any) => any {
   return fns.reduce((acc, fn) => val => fn(acc(val)), x => x);
 }
@@ -96,6 +105,20 @@ export function pipe(fns: ((x: any) => any)[]): (x: any) => any {
 
 export function pipeThru(val: any, fns: ((x: any) => any)[]): any {
   return pipe(fns)(val);
+}
+
+
+export function pluckKeys<T>(obj: { [k: string]: T }, keep: string[]): { [k: string]: T } {
+  let out = {};
+  for (let key of keep) {
+    if (key in obj) { out[key] = obj[key]; }
+  }
+  return out;
+}
+
+
+export function reduceObj<T,U>(obj: { [k: string]: T }, init: U, reducer: (acc: U, v: T, k: string) => U): U {
+  return Object.keys(obj).reduce((acc, key) => reducer(acc, obj[key], key), init);
 }
 
 
