@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const utils_1 = require("./lib/utils");
 const either_1 = require("./lib/either");
-;
 function hydra(requestHandlers, querier, responders, schema) {
     return (req, res) => {
         try {
@@ -10,7 +9,7 @@ function hydra(requestHandlers, querier, responders, schema) {
             if (!responder) {
                 return sendResponse({ code: 406, headers: {}, body: '' }, res);
             }
-            const requestHandler = selectRequestHandler(requestHandlers, req.headers["content-type"] || '');
+            const requestHandler = selectRequestHandler(requestHandlers, req.headers['content-type'] || '');
             // TODO: let responders handle 415s
             if (!requestHandler) {
                 return sendResponse({ code: 415, headers: {}, body: '' }, res);
@@ -22,7 +21,10 @@ function hydra(requestHandlers, querier, responders, schema) {
             })
                 .then(r => responder(r, schema))
                 .then(outcome => sendResponse(outcome, res))
-                .catch(_ => sendResponse({ code: 500, headers: {}, body: '' }, res));
+                .catch(err => {
+                console.error(err);
+                sendResponse({ code: 500, headers: {}, body: '' }, res);
+            });
         }
         catch (err) {
             return sendResponse({ code: 500, headers: {}, body: '' }, res);
@@ -58,7 +60,8 @@ function acceptTable(rawTypeStr) {
 }
 function matchesType(concreteType, typeDef) {
     const [m, s] = concreteType.split('/');
-    return (typeDef.type === '*') || (typeDef.type === m && (typeDef.subType === '*' || typeDef.subType === s));
+    return (typeDef.type === '*' ||
+        (typeDef.type === m && (typeDef.subType === '*' || typeDef.subType === s)));
 }
 function parseAccept(acceptString) {
     return acceptString.split(',').map(acceptTable);
@@ -67,12 +70,15 @@ function selectResponder(responders, acceptString) {
     const parsed = parseAccept(acceptString);
     const pairings = utils_1.xprod(Object.keys(responders), parsed);
     const init = [null, 0];
-    const pair = pairings.reduce(([bestType, bestQ], [respType, typeDef]) => ((typeDef.q > bestQ) && matchesType(respType, typeDef)) ?
-        [respType, typeDef.q] :
-        [bestType, bestQ], init);
-    return (pair[0] !== null) ? responders[pair[0]] : null;
+    const pair = pairings.reduce(([bestType, bestQ], [respType, typeDef]) => typeDef.q > bestQ && matchesType(respType, typeDef)
+        ? [respType, typeDef.q]
+        : [bestType, bestQ], init);
+    return pair[0] !== null ? responders[pair[0]] : null;
 }
 function selectRequestHandler(requestHandlers, contentType) {
-    const handler = Object.keys(requestHandlers).find(k => matchesType(contentType, k));
+    const handler = Object.keys(requestHandlers).find(k => {
+        const [type, subType] = k.split('/');
+        return matchesType(contentType, { type, subType });
+    });
     return handler ? requestHandlers[handler] : null;
 }

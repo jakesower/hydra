@@ -7,11 +7,10 @@ interface Eith<E, O> {
   isOk(): boolean;
   isErr(): boolean;
   hasValue(value: O): boolean;
-  getOkValue(): O,
-  getErrValue(): E,
-  split<T>(errFn: (val: E) => T, okFn: (val: O) => T): T,
+  getOkValue(): O;
+  getErrValue(): E;
+  split<T>(errFn: (val: E) => T, okFn: (val: O) => T): T;
 }
-
 
 class EitherOk<E, O> implements Eith<E, O> {
   constructor(private value: O) {}
@@ -40,8 +39,12 @@ class EitherOk<E, O> implements Eith<E, O> {
     return this.value === value;
   }
 
-  isOk() { return true; }
-  isErr() { return false; }
+  isOk() {
+    return true;
+  }
+  isErr() {
+    return false;
+  }
 
   getOkValue(): O {
     return this.value;
@@ -51,7 +54,6 @@ class EitherOk<E, O> implements Eith<E, O> {
     throw "Can't get an err value from an ok!";
   }
 }
-
 
 class EitherErr<E, O> implements Eith<E, O> {
   constructor(private value: E) {}
@@ -107,40 +109,46 @@ export function Err<E, O>(value: E): Either<E, O> {
   return new EitherErr(value);
 }
 
-export function sequenceList<T,U>(eithers: Either<T,U>[]): Either<T,U[]> {
+export function sequenceList<T, U>(eithers: Either<T, U>[]): Either<T, U[]> {
   const l = eithers.length;
   const out = <U[]>[];
-  for (let i=0; i<l; i+=1) {
+  for (let i = 0; i < l; i += 1) {
     const e = eithers[i];
-    if (e.isErr()) { return (e as unknown as Either<T, U[]>); }
+    if (e.isErr()) {
+      return (e as unknown) as Either<T, U[]>;
+    }
     out[i] = e.recoverWith(null) as U;
   }
   return Ok<T, U[]>(out);
 }
 
-export function sequenceObj<T,U>(eithers: {[k: string]: Either<T,U>}): Either<T,{[k: string]: U}> {
+export function sequenceObj<T, U>(eithers: {
+  [k: string]: Either<T, U>;
+}): Either<T, { [k: string]: U }> {
   const keys = Object.keys(eithers);
   const vals = Object.values(eithers);
   const l = vals.length;
   const out = <U[]>[];
-  for (let i=0; i<l; i+=1) {
+  for (let i = 0; i < l; i += 1) {
     const e = vals[i];
-    if (e.isErr()) { return (e as unknown as Either<T,{[k: string]: U}>); }
+    if (e.isErr()) {
+      return (e as unknown) as Either<T, { [k: string]: U }>;
+    }
     out[i] = e.recoverWith(null) as U;
   }
   return Ok(zipObj(keys, out));
 }
 
-export function sequencePromise<E, O>(eitherPromise: Either<E, Promise<O>>): Promise<Either<E, O>> {
+export function sequencePromise<E, O>(
+  eitherPromise: Either<E, Promise<O>>
+): Promise<Either<E, O>> {
   if (eitherPromise.isErr()) {
-    return Promise.resolve(eitherPromise) as unknown as Promise<Either<E, O>>;
+    return (Promise.resolve(eitherPromise) as unknown) as Promise<Either<E, O>>;
   }
 
   return eitherPromise.getOkValue().then(val => Ok<E, O>(val));
 }
 
 export function flattenEither<E, O>(e: Either<E, Either<E, O>>): Either<E, O> {
-  return e.isErr() ?
-    e  as unknown as Either<E, O> :
-    e.getOkValue();
+  return e.isErr() ? ((e as unknown) as Either<E, O>) : e.getOkValue();
 }

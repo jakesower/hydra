@@ -1,4 +1,5 @@
 {
+  "title": "Care Bear Schema",
   "resources": {
     "bears": {
       "attributes": {
@@ -17,6 +18,11 @@
           "type": "powers",
           "cardinality": "many",
           "inverse": "bears"
+        },
+        "best_friend": {
+          "type": "bears",
+          "cardinality": "one",
+          "inverse": "best_friend"
         }
       }
     },

@@ -1,7 +1,9 @@
 type Ord = number | string | boolean | Date;
 
-
-export function appendKeys<T, K extends keyof T>(base: { [k: string]: T[K][] }, other: { [k: string]: T[K][] }): { [k: string] : T[K][] } {
+export function appendKeys<T, K extends keyof T>(
+  base: { [k: string]: T[K][] },
+  other: { [k: string]: T[K][] }
+): { [k: string]: T[K][] } {
   const keys = Object.keys(base);
   let result = {};
   for (let key of keys) {
@@ -10,25 +12,63 @@ export function appendKeys<T, K extends keyof T>(base: { [k: string]: T[K][] }, 
   return result;
 }
 
-
 export function chainPipeThru(val: any, fns: ((x: any) => any)[]) {
   return fns.reduce((acc, fn) => acc.chain(fn), val);
 }
 
-
 export function fgo(generator: () => IterableIterator<any>) {
-  const recur = ({value, done}, gen) => {
-    if (done) { return value; }
+  const recur = ({ value, done }, gen) => {
+    if (done) {
+      return value;
+    }
     return value.chain(v => recur(gen.next(v), gen));
-  }
+  };
 
   let g = generator();
   return recur(g.next(), g);
 }
 
+export function fillObject<T>(keys: string[], value: T): { [k: string]: T } {
+  const l = keys.length;
+  let out = {};
+
+  for (let i = 0; i < l; i += 1) {
+    out[keys[i]] = value;
+  }
+
+  return out;
+}
+
+export function filterObj<T>(
+  obj: { [k: string]: T },
+  predicateFn: (x: T) => boolean
+): { [k: string]: T } {
+  let out = {};
+  for (const key of Object.keys(obj)) {
+    if (predicateFn(obj[key])) {
+      out[key] = obj[key];
+    }
+  }
+  return out;
+}
+
+export function findObj<T>(
+  obj: { [k: string]: T },
+  predicateFn: (x: T) => boolean
+): T | null {
+  for (const key of Object.keys(obj)) {
+    if (predicateFn(obj[key])) {
+      return obj[key];
+    }
+  }
+
+  return null;
+}
 
 // e.g. {a: {inner: 'thing'}, b: {other: 'item'}} => {a: {key: 'a', inner: 'thing'}, b: {key: 'b', other: 'item'}}
-export function inlineKey<T, K extends keyof T>(obj: T): {[k: string]: T[K] & { key: string }} {
+export function inlineKey<T, K extends keyof T>(
+  obj: T
+): { [k: string]: T[K] & { key: string } } {
   let result = {};
   const keys = Object.keys(obj);
   for (let key of keys) {
@@ -37,13 +77,14 @@ export function inlineKey<T, K extends keyof T>(obj: T): {[k: string]: T[K] & { 
   return result;
 }
 
-
-export function mapObj<T,U>(obj: {[k in string]: T}, fn: (x: T, idx: string) => U): ({[k in string]: U}) {
+export function mapObj<T, U>(
+  obj: { [k in string]: T },
+  fn: (x: T, idx: string) => U
+): { [k in string]: U } {
   const [keys, vals] = [Object.keys(obj), Object.values(obj)];
   const mappedVals = vals.map((v, idx) => fn(v, keys[idx]));
   return zipObj(keys, mappedVals);
 }
-
 
 export function maxStable<T>(fn: (a: T) => Ord, xs: T[]): T {
   const l = xs.length;
@@ -63,15 +104,31 @@ export function maxStable<T>(fn: (a: T) => Ord, xs: T[]): T {
   return out;
 }
 
-
-export function mergeAll<T>(items: {[k in string]: T}[]): ({[k in string]: T}) {
-  const init: ({[k in string]: T}) = {};
+export function mergeAll<T>(
+  items: { [k in string]: T }[]
+): { [k in string]: T } {
+  const init: { [k in string]: T } = {};
   return items.reduce((merged, arg) => ({ ...merged, ...arg }), init);
 }
 
+export function mergeChildren(
+  obj: { [k: string]: { [k: string]: any } },
+  ext: { [k: string]: { [k: string]: any } }
+): { [k: string]: { [k: string]: any } } {
+  const ks = uniq([...Object.keys(obj), ...Object.keys(ext)]);
+  const l = ks.length;
+
+  let out = {};
+  for (let i = 0; i < l; i += 1) {
+    out[ks[i]] = { ...(obj[ks[i]] || {}), ...(ext[ks[i]] || {}) };
+  }
+  return out;
+}
 
 export function overPath(obj, path, fn) {
-  if (path.length === 0) { return null; }
+  if (path.length === 0) {
+    return null;
+  }
 
   const [head, ...tail] = path;
 
@@ -79,51 +136,64 @@ export function overPath(obj, path, fn) {
     return {
       ...obj,
       [head]: fn(obj[head]),
-    }
+    };
   }
 
   return {
     ...obj,
-    [head]: overPath(obj[head], tail, fn)
+    [head]: overPath(obj[head], tail, fn),
   };
 }
 
-
-export function omitKeys<T>(obj: { [k: string]: T }, nix: string[]): { [k: string]: T } {
+export function omitKeys<T>(
+  obj: { [k: string]: T },
+  nix: string[]
+): { [k: string]: T } {
   let out = {};
   for (let key of Object.keys(obj)) {
-    if (!nix.includes(key)) { out[key] = obj[key]; }
+    if (!nix.includes(key)) {
+      out[key] = obj[key];
+    }
   }
   return out;
 }
-
 
 export function pipe(fns: ((x: any) => any)[]): (x: any) => any {
   return fns.reduce((acc, fn) => val => fn(acc(val)), x => x);
 }
 
-
 export function pipeThru(val: any, fns: ((x: any) => any)[]): any {
   return pipe(fns)(val);
 }
 
-
-export function pluckKeys<T>(obj: { [k: string]: T }, keep: string[]): { [k: string]: T } {
+export function pluckKeys<T>(
+  obj: { [k: string]: T },
+  keep: string[]
+): { [k: string]: T } {
   let out = {};
   for (let key of keep) {
-    if (key in obj) { out[key] = obj[key]; }
+    if (key in obj) {
+      out[key] = obj[key];
+    }
   }
   return out;
 }
 
-
-export function reduceObj<T,U>(obj: { [k: string]: T }, init: U, reducer: (acc: U, v: T, k: string) => U): U {
-  return Object.keys(obj).reduce((acc, key) => reducer(acc, obj[key], key), init);
+export function reduceObj<T, U>(
+  obj: { [k: string]: T },
+  init: U,
+  reducer: (acc: U, v: T, k: string) => U
+): U {
+  return Object.keys(obj).reduce(
+    (acc, key) => reducer(acc, obj[key], key),
+    init
+  );
 }
 
-
 export function sortBy<T>(fn: (a: T, b: T) => number, xs: T[]): T[] {
-  if (xs.length === 0) { return []; }
+  if (xs.length === 0) {
+    return [];
+  }
   const first = xs[0];
   const rest = xs.slice(1);
   let lts: T[] = [];
@@ -132,26 +202,29 @@ export function sortBy<T>(fn: (a: T, b: T) => number, xs: T[]): T[] {
   for (let i = 0; i < rest.length; i += 1) {
     const comp = fn(rest[i], first);
 
-    if (comp > 0) { gts.push(rest[i]); }
-    else if (comp === 0) { eqs.push(rest[i]); }
-    else { lts.push(rest[i]) }
+    if (comp > 0) {
+      gts.push(rest[i]);
+    } else if (comp === 0) {
+      eqs.push(rest[i]);
+    } else {
+      lts.push(rest[i]);
+    }
   }
 
-  return sortBy(fn, lts).concat(eqs).concat(sortBy(fn, gts));
+  return sortBy(fn, lts)
+    .concat(eqs)
+    .concat(sortBy(fn, gts));
 }
-
 
 export function uniq<T>(xs: T[]): T[] {
   return [...new Set(xs)];
 }
 
-
 export function unnest<T>(xs: T[][]): T[] {
   return makeFlat(xs, false);
 }
 
-
-export function xprod<T,U>(xs: T[], ys: U[]): [T,U][] {
+export function xprod<T, U>(xs: T[], ys: U[]): [T, U][] {
   const xl = xs.length;
   const yl = ys.length;
   let out: [T, U][] = [];
@@ -165,15 +238,12 @@ export function xprod<T,U>(xs: T[], ys: U[]): [T,U][] {
   return out;
 }
 
-
 export function zipObj<T>(keys: string[], vals: T[]): { [k: string]: T } {
   return keys.reduce((out, key, idx) => {
-    const o = {[key]: vals[idx]};
+    const o = { [key]: vals[idx] };
     return { ...out, ...o };
   }, {});
 }
-
-
 
 function makeFlat<T>(list, recursive): T[] {
   let result: T[] = [];

@@ -24,6 +24,15 @@ function fgo(generator) {
     return recur(g.next(), g);
 }
 exports.fgo = fgo;
+function fillObject(keys, value) {
+    const l = keys.length;
+    let out = {};
+    for (let i = 0; i < l; i += 1) {
+        out[keys[i]] = value;
+    }
+    return out;
+}
+exports.fillObject = fillObject;
 // e.g. {a: {inner: 'thing'}, b: {other: 'item'}} => {a: {key: 'a', inner: 'thing'}, b: {key: 'b', other: 'item'}}
 function inlineKey(obj) {
     let result = {};
@@ -60,6 +69,16 @@ function mergeAll(items) {
     return items.reduce((merged, arg) => (Object.assign({}, merged, arg)), init);
 }
 exports.mergeAll = mergeAll;
+function mergeChildren(obj, ext) {
+    const ks = uniq([...Object.keys(obj), ...Object.keys(ext)]);
+    const l = ks.length;
+    let out = {};
+    for (let i = 0; i < l; i += 1) {
+        out[ks[i]] = Object.assign({}, (obj[ks[i]] || {}), (ext[ks[i]] || {}));
+    }
+    return out;
+}
+exports.mergeChildren = mergeChildren;
 function overPath(obj, path, fn) {
     if (path.length === 0) {
         return null;
@@ -71,6 +90,16 @@ function overPath(obj, path, fn) {
     return Object.assign({}, obj, { [head]: overPath(obj[head], tail, fn) });
 }
 exports.overPath = overPath;
+function omitKeys(obj, nix) {
+    let out = {};
+    for (let key of Object.keys(obj)) {
+        if (!nix.includes(key)) {
+            out[key] = obj[key];
+        }
+    }
+    return out;
+}
+exports.omitKeys = omitKeys;
 function pipe(fns) {
     return fns.reduce((acc, fn) => val => fn(acc(val)), x => x);
 }
@@ -79,6 +108,20 @@ function pipeThru(val, fns) {
     return pipe(fns)(val);
 }
 exports.pipeThru = pipeThru;
+function pluckKeys(obj, keep) {
+    let out = {};
+    for (let key of keep) {
+        if (key in obj) {
+            out[key] = obj[key];
+        }
+    }
+    return out;
+}
+exports.pluckKeys = pluckKeys;
+function reduceObj(obj, init, reducer) {
+    return Object.keys(obj).reduce((acc, key) => reducer(acc, obj[key], key), init);
+}
+exports.reduceObj = reduceObj;
 function sortBy(fn, xs) {
     if (xs.length === 0) {
         return [];
@@ -100,13 +143,19 @@ function sortBy(fn, xs) {
             lts.push(rest[i]);
         }
     }
-    return sortBy(fn, lts).concat(eqs).concat(sortBy(fn, gts));
+    return sortBy(fn, lts)
+        .concat(eqs)
+        .concat(sortBy(fn, gts));
 }
 exports.sortBy = sortBy;
 function uniq(xs) {
     return [...new Set(xs)];
 }
 exports.uniq = uniq;
+function unnest(xs) {
+    return makeFlat(xs, false);
+}
+exports.unnest = unnest;
 function xprod(xs, ys) {
     const xl = xs.length;
     const yl = ys.length;
@@ -126,3 +175,24 @@ function zipObj(keys, vals) {
     }, {});
 }
 exports.zipObj = zipObj;
+function makeFlat(list, recursive) {
+    let result = [];
+    let idx = 0;
+    let ilen = list.length;
+    while (idx < ilen) {
+        if (Array.isArray(list[idx])) {
+            let value = recursive ? makeFlat(list[idx], true) : list[idx];
+            let j = 0;
+            let jlen = value.length;
+            while (j < jlen) {
+                result[result.length] = value[j];
+                j += 1;
+            }
+        }
+        else {
+            result[result.length] = list[idx];
+        }
+        idx += 1;
+    }
+    return result;
+}

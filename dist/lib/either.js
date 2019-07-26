@@ -14,14 +14,21 @@ class EitherOk {
     chain(fn) {
         return fn(this.value);
     }
+    split(_errFn, okFn) {
+        return okFn(this.value);
+    }
     mapErr(_fn) {
         return new EitherOk(this.value);
     }
     hasValue(value) {
         return this.value === value;
     }
-    isOk() { return true; }
-    isErr() { return false; }
+    isOk() {
+        return true;
+    }
+    isErr() {
+        return false;
+    }
     getOkValue() {
         return this.value;
     }
@@ -41,6 +48,9 @@ class EitherErr {
     }
     chain(_fn) {
         return new EitherErr(this.value);
+    }
+    split(errFn, _okFn) {
+        return errFn(this.value);
     }
     mapErr(fn) {
         return new EitherErr(fn(this.value));
@@ -105,8 +115,6 @@ function sequencePromise(eitherPromise) {
 }
 exports.sequencePromise = sequencePromise;
 function flattenEither(e) {
-    return e.isErr() ?
-        e :
-        e.getOkValue();
+    return e.isErr() ? e : e.getOkValue();
 }
 exports.flattenEither = flattenEither;

@@ -16,32 +16,32 @@ function SqliteQuerier(db) {
             const { query, params } = buildQuery(queryGraph);
             const results = yield runQuery(query, params);
             return buildResults(queryGraph, results);
-            // helper functions
             function buildQuery(rootGraph) {
                 const go = (graph, path) => {
                     const { attributes } = schema.resources[graph.type];
                     const attrNames = Object.keys(attributes);
-                    const relationships = Object.values(graph.relationships);
+                    const relationships = Object.keys(graph.relationships);
                     const table = `${path.join('$')}`;
                     const kids = Object.values(graph.relationships)
                         .map((r, idx) => go(r, [...path, idx]))
                         .reduce(utils_1.appendKeys, { selections: [], joins: [], constraints: [] });
-                    const joins = relationships.map((rel, idx) => {
-                        join(graph.type, rel, table, `${table}$${idx}`);
-                    });
+                    const joins = relationships.map((rel, idx) => join(graph.type, rel, table, `${table}$${idx}`));
                     return utils_1.appendKeys(kids, {
                         selections: [
                             `${table}.id AS ${table}$$id`,
                             ...attrNames.map((attr, idx) => `${table}.${attr} AS ${table}$$${idx}`),
                         ],
                         joins,
-                        constraints: graph.constraints.map(c => [`${table}.${c.field} = ?`, c.value]),
+                        constraints: graph.constraints.map(c => [
+                            `${table}.${c.field} = ?`,
+                            c.value,
+                        ]),
                     });
                 };
                 const { selections, joins, constraints } = go(rootGraph, ['root']);
                 const fromStr = `FROM ${rootGraph.type} AS root`;
-                const whereStr = constraints.length > 0 ?
-                    `WHERE ${constraints.map(c => c[0]).join(' AND ')}`
+                const whereStr = constraints.length > 0
+                    ? `WHERE ${constraints.map(c => c[0]).join(' AND ')}`
                     : '';
                 return {
                     query: `SELECT ${selections.join(', ')} ${fromStr} ${joins.join(' ')} ${whereStr}`,
@@ -59,74 +59,78 @@ function SqliteQuerier(db) {
                 });
             }
             function buildResults(rootGraph, results) {
-                const root = rootGraph.cardinality === 'one' ?
-                    (results.length > 0 ? results[0].root$$id : null) :
-                    utils_1.uniq(results.map(r => r.root$$id));
-                const baseResources = utils_1.uniq(flattenQueryGraph(rootGraph).map(graph => graph.type))
-                    .reduce((acc, type) => (Object.assign({}, acc, { [type]: {} })), {});
-                const attrExtracters = reduceQueryGraph(rootGraph, {}, (acc, graph, path) => {
-                    const table = `root$${path.join('$')}`;
+                const root = rootGraph.cardinality === 'one'
+                    ? results.length > 0
+                        ? results[0].root$$id
+                        : null
+                    : utils_1.uniq(results.map(r => r.root$$id));
+                const baseResources = utils_1.uniq(flattenQueryGraph(rootGraph).map(graph => graph.type)).reduce((acc, type) => (Object.assign({}, acc, { [type]: {} })), {});
+                const extracters = reduceQueryGraph(rootGraph, {}, (acc, graph, path) => {
+                    const table = ['root', ...path].join('$');
                     const rDef = schema.resources[graph.type];
-                    const extractFn = row => Object.keys(rDef.attributes).reduce((acc, attr, idx) => (Object.assign({}, acc, { [attr]: row[`${table}$$${idx}`] })), {});
+                    const extractFn = (row, curVal) => {
+                        const attrExtracters = Object.keys(rDef.attributes).reduce((acc, attr, idx) => (Object.assign({}, acc, { [attr]: row[`${table}$$${idx}`] })), {});
+                        const relExtracters = Object.keys(graph.relationships).reduce((acc, relName, idx) => {
+                            const rel = graph.relationships[relName];
+                            const base = rel.cardinality === 'many'
+                                ? curVal
+                                    ? curVal[relName]
+                                    : []
+                                : null;
+                            const obj = {
+                                type: rel.type,
+                                id: row[`${table}$${idx}$$id`],
+                            };
+                            return Object.assign({}, acc, { [relName]: rel.cardinality === 'many' ? [...base, obj] : obj });
+                        }, {});
+                        return Object.assign({}, attrExtracters, relExtracters);
+                    };
                     return Object.assign({}, acc, { [table]: extractFn });
                 });
-                const tables = reduceQueryGraph(rootGraph, [], (acc, g, path) => [...acc, { table: `${root}$${path.join('$')}`, type: g.type }]);
+                const tables = reduceQueryGraph(rootGraph, [], (acc, g, path) => [
+                    ...acc,
+                    { table: ['root', ...path].join('$'), type: g.type },
+                ]);
                 let output = {
                     root,
                     type: rootGraph.type,
                     cardinality: rootGraph.cardinality,
-                    resources: baseResources
+                    resources: baseResources,
                 };
                 results.forEach(row => {
                     // layer in resources
                     tables.forEach(({ table, type }) => {
-                        output.resources[type][row[`${table}$$id`]], attrExtracters[table](row);
+                        const curVal = output.resources[type][row[`${table}$$id`]];
+                        output.resources[type][row[`${table}$$id`]] = extracters[table](row, curVal);
                     });
                 });
                 return either_1.Ok(output);
             }
-            function join(localType, localRel, localTableName, foreignTableName) {
-                const inverseRel = schema.resources[localRel.type].relationships[localRel.inverse];
-                const foreignType = localRel.type;
-                if (localRel.cardinality === inverseRel.cardinality) {
+            function join(localType, localRelName, localTableName, foreignTableName) {
+                const localDef = schema.resources[localType].relationships[localRelName];
+                const inverseRel = schema.resources[localDef.type].relationships[localDef.inverse];
+                const foreignType = localDef.type;
+                if (localDef.cardinality === inverseRel.cardinality) {
                     throw 'not supported';
                 }
-                return localRel.cardinality === 'many' ?
-                    `INNER JOIN ${foreignTableName} ON ${foreignTableName}.${localType}_id = ${localTableName}.id` :
-                    `INNER JOIN ${foreignTableName} ON ${localTableName}.${foreignType}_id = ${foreignTableName}.id`;
+                const base = `INNER JOIN ${foreignType} AS ${foreignTableName} ON`;
+                return localDef.cardinality === 'many'
+                    ? `${base} ${foreignTableName}.${localType}_id = ${localTableName}.id`
+                    : `${base} ${localTableName}.${foreignType}_id = ${foreignTableName}.id`;
             }
-            // relationships go from the root out (affects one to many relationships)
-            // function link(localRel, localTableName, foreignTableName) {
-            //   const inverseRel = schema.resources[localRel.type].relationships[localRel.inverse];
-            //   const localLinkKey = `${localRel.type}_id`;
-            //   const inverseLinkKey = `${inverseRel.type}_id`;
-            //   return localRel.cardinality === 'many' ?
-            //     foreignTableName[inverseLinkKey] :
-            //     localTableName[localLinkKey];
-            // }
             function flattenQueryGraph(graph) {
                 return [
                     graph,
-                    ...Object.values(graph.relationships).flatMap(flattenQueryGraph)
+                    ...utils_1.unnest(Object.values(graph.relationships).map(flattenQueryGraph)),
                 ];
             }
             function reduceQueryGraph(graph, init, reducer) {
                 const flatWithPath = (g, p) => [
                     [g, p],
-                    ...Object.values(g.relationships).flatMap((rel, idx) => flatWithPath(rel, [...p, idx]))
+                    ...utils_1.unnest(Object.values(g.relationships).map((rel, idx) => flatWithPath(rel, [...p, idx]))),
                 ];
                 return flatWithPath(graph, []).reduce((acc, [g, p]) => reducer(acc, g, p), init);
             }
-            //   function mapQueryGraph<T>(
-            //     graph: QueryGraph,
-            //     fn: (graph: QueryGraph, path: number[]) => T,
-            //   ): T[] {
-            //     const flatWithPath = (g, p) => [
-            //       [g, p],
-            //       ...Object.values(g.relationships).flatMap((rel, idx) => flatWithPath(rel, [...p, idx]))
-            //     ];
-            //     return flatWithPath(graph, []).reduce((acc, [g, p]) => reducer(acc, g, p), init);
-            //   }
         });
     };
 }

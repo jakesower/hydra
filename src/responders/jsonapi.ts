@@ -2,11 +2,14 @@ import { ResultGraph, HydraError, HydraResponse, Schema } from '../types';
 import { Either } from '../lib/either';
 import { pluckKeys, reduceObj, omitKeys } from '../lib/utils';
 
-export function JsonApiResponder(results: Either<HydraError, ResultGraph>, schema: Schema): Promise<HydraResponse> {
+export function JsonApiResponder(
+  results: Either<HydraError, ResultGraph>,
+  schema: Schema
+): Promise<HydraResponse> {
   const details = results.split(handleError, handleOk);
 
   const meta = {
-    description: "why hello there",
+    description: 'why hello there',
   };
 
   const headers = {
@@ -22,19 +25,20 @@ export function JsonApiResponder(results: Either<HydraError, ResultGraph>, schem
     }),
   });
 
-
-
-  function handleError(errors: HydraError): { code: number, payload: { [k: string]: any }} {
+  function handleError(
+    errors: HydraError
+  ): { code: number; payload: { [k: string]: any } } {
     return {
       code: 400,
       payload: {
-        errors: errors.messages.map(err => ({ detail: err }))
+        errors: errors.messages.map(err => ({ detail: err })),
       },
     };
   }
 
-
-  function handleOk(resultGraph: ResultGraph): { code: number, payload: { [k: string]: any }} {
+  function handleOk(
+    resultGraph: ResultGraph
+  ): { code: number; payload: { [k: string]: any } } {
     const formatResource = (type, id) => {
       const resource = resultGraph.resources[type][id];
       const def = schema.resources[type];
@@ -49,20 +53,29 @@ export function JsonApiResponder(results: Either<HydraError, ResultGraph>, schem
 
     const expandRoot = id => formatResource(resultGraph.type, id);
 
-    const data = resultGraph.cardinality === 'one' ?
-      expandRoot(resultGraph.root) :
-      resultGraph.root.map(expandRoot);
+    const data =
+      resultGraph.cardinality === 'one'
+        ? expandRoot(resultGraph.root)
+        : resultGraph.root.map(expandRoot);
 
-    const rootIds = resultGraph.cardinality === 'one' ? [resultGraph.root] : resultGraph.root;
+    const rootIds =
+      resultGraph.cardinality === 'one' ? [resultGraph.root] : resultGraph.root;
     const includedResources = {
       ...resultGraph.resources,
-      [resultGraph.type]: omitKeys(resultGraph.resources[resultGraph.type], rootIds)
+      [resultGraph.type]: omitKeys(
+        resultGraph.resources[resultGraph.type],
+        rootIds
+      ),
     };
 
-    const included = reduceObj(includedResources, <any[]>[], (acc, resourcesOfType, type) => [
-      ...acc,
-      ...Object.keys(resourcesOfType).map(id => formatResource(type, id))
-    ]);
+    const included = reduceObj(
+      includedResources,
+      <any[]>[],
+      (acc, resourcesOfType, type) => [
+        ...acc,
+        ...Object.keys(resourcesOfType).map(id => formatResource(type, id)),
+      ]
+    );
 
     return {
       code: 200,
