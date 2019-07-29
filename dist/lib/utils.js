@@ -33,6 +33,25 @@ function fillObject(keys, value) {
     return out;
 }
 exports.fillObject = fillObject;
+function filterObj(obj, predicateFn) {
+    let out = {};
+    for (const key of Object.keys(obj)) {
+        if (predicateFn(obj[key])) {
+            out[key] = obj[key];
+        }
+    }
+    return out;
+}
+exports.filterObj = filterObj;
+function findObj(obj, predicateFn) {
+    for (const key of Object.keys(obj)) {
+        if (predicateFn(obj[key])) {
+            return obj[key];
+        }
+    }
+    return null;
+}
+exports.findObj = findObj;
 // e.g. {a: {inner: 'thing'}, b: {other: 'item'}} => {a: {key: 'a', inner: 'thing'}, b: {key: 'b', other: 'item'}}
 function inlineKey(obj) {
     let result = {};

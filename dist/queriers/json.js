@@ -9,17 +9,30 @@ function JsonQuerier(schema, baseState) {
         objects: utils_1.mergeChildren(baseObjects, baseState.objects),
         relationships: utils_1.mergeChildren(baseRelationships, baseState.relationships),
     };
-    return { get };
+    return { get, merge };
     function get(query) {
         return 'id' in query ? getOne(query) : getMany(query);
     }
-    // Relationships are always (?) queried from the context of objects.
-    // The formulation is: given object X and relationship type R, what are all Y s.t. the relationship holds
-    // Relationships are stored s.t. left is alphabetically first of type then relationship name. Symmetric relationships don't matter for ordering.
-    // This hopefully makes inverse queries straightforward.
-    // However for performance purposes, it may be useful to store both sides of the relationship. Sync issues are a problem though.
-    // Also LOL on you if you're using this store in an arena requiring good performance.
-    // Query -> ConcreteGraphWalk? -> GraphNode
+    // As of now, support the same stuff that JSONAPI supports. Namely, only a
+    // single object can be touched in a merge call.
+    function merge(resource) {
+        const { id, type } = resource;
+        const base = state.objects[type][id] || {};
+        state.objects[type][id] = Object.assign({}, base, resource.attributes);
+        utils_1.mapObj(resource.relationships || {}, (relationships, relationshipName) => {
+            const symmetric = schema_functions_1.isSymmetricRelationship(schema, type, relationshipName);
+            const { name: arrowName, locality } = schema_functions_1.canonicalRelationship(schema, type, relationshipName);
+            const relationshipKey = schema_functions_1.canonicalRelationshipName(schema, type, relationshipName);
+            const filt = symmetric
+                ? arrow => arrow.local === id || arrow.foreign === id
+                : locality === 'local'
+                    ? arrow => arrow.local === id
+                    : arrow => arrow.foreign === id;
+            const withoutExisting = state.relationships[relationshipKey].filter(filt);
+            const toAdd = (Array.isArray(relationships) ? relationships : [relationships]).map(f => locality === 'local' ? { local: id, foreign: f } : { local: f, foreign: id });
+            state.relationships[relationshipKey] = [...withoutExisting, ...toAdd];
+        });
+    }
     function getOne(query) {
         const { type, id } = query;
         const root = state.objects[type][id];
@@ -32,10 +45,10 @@ function JsonQuerier(schema, baseState) {
         };
     }
     function getMany(query) {
-        return Object.values(utils_1.mapObj(state.objects[query.type], (options, id) => getOne({
+        return Object.values(utils_1.mapObj(state.objects[query.type], (_, id) => getOne({
             type: query.type,
             id,
-            relationships: options.relationships,
+            relationships: query.relationships,
         })));
     }
     function expandRelationship(query, relationshipName, options) {
@@ -43,15 +56,27 @@ function JsonQuerier(schema, baseState) {
         const relationshipDefinition = schema.resources[type].relationships[relationshipName];
         const relationshipType = schema_functions_1.canonicalRelationshipName(schema, type, relationshipName);
         const pool = state.relationships[relationshipType];
-        const finder = relArrow => relArrow[type] === id;
-        const expand = hit => getOne({
-            id: hit[relationshipDefinition.type],
-            type: relationshipDefinition.type,
-            relationships: options.relationships,
-        });
-        return relationshipDefinition.cardinality === 'one'
-            ? expand(pool.find(finder))
-            : pool.filter(finder).map(expand);
+        const inverse = schema_functions_1.inverseRelationship(schema, type, relationshipName);
+        // three possibilities: symmetric, local, foreign
+        const finder = relationshipDefinition.type === inverse.type
+            ? relArrow => relArrow.left === id || relArrow.right === id
+            : relArrow => relArrow[type] === id;
+        const expand = hit => relationshipDefinition.type === inverse.type
+            ? getOne({
+                id: hit.left === id ? hit.right : hit.left,
+                type: relationshipDefinition.type,
+                relationships: options.relationships,
+            })
+            : getOne({
+                id: hit[relationshipDefinition.type],
+                type: relationshipDefinition.type,
+                relationships: options.relationships,
+            });
+        if (relationshipDefinition.cardinality === 'one') {
+            const found = utils_1.findObj(pool, finder);
+            return found ? expand(found) : null;
+        }
+        return Object.values(utils_1.filterObj(pool, finder)).map(expand);
     }
 }
 exports.JsonQuerier = JsonQuerier;

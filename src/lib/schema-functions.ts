@@ -29,10 +29,7 @@ export function attributeNames(schema: Schema, resourceType: string): string[] {
   return Object.keys(schema.resources[resourceType].attributes);
 }
 
-export function relationshipNames(
-  schema: Schema,
-  resourceType: string
-): string[] {
+export function relationshipNames(schema: Schema, resourceType: string): string[] {
   return Object.keys(schema.resources[resourceType].relationships);
 }
 
@@ -56,24 +53,27 @@ export function inverseRelationship(
   return schema.resources[def.type].relationships[def.inverse];
 }
 
+export function canonicalRelationship(
+  schema: Schema,
+  resourceType: string,
+  relationshipName: string
+): { name: string; locality: 'local' | 'foreign' } {
+  const key = def => `${def.type}/${def.inverse}`;
+
+  const relationshipDef = schema.resources[resourceType].relationships[relationshipName];
+  const inverseDef = inverseRelationship(schema, resourceType, relationshipDef.key);
+
+  return key(inverseDef) < key(relationshipDef)
+    ? { name: key(inverseDef), locality: 'local' }
+    : { name: key(relationshipDef), locality: 'foreign' };
+}
+
 export function canonicalRelationshipName(
   schema: Schema,
   resourceType: string,
   relationshipName: string
 ): string {
-  const key = def => `${def.type}/${def.inverse}`;
-
-  const relationshipDef =
-    schema.resources[resourceType].relationships[relationshipName];
-  const inverseDef = inverseRelationship(
-    schema,
-    resourceType,
-    relationshipDef.key
-  );
-
-  return key(inverseDef) < key(relationshipDef)
-    ? key(inverseDef)
-    : key(relationshipDef);
+  return canonicalRelationship(schema, resourceType, relationshipName).name;
 }
 
 export function canonicalRelationshipNames(schema: Schema): string[] {
@@ -90,4 +90,14 @@ export function canonicalRelationshipNames(schema: Schema): string[] {
       []
     )
   );
+}
+
+export function isSymmetricRelationship(
+  schema: Schema,
+  resourceType: string,
+  relationshipName: string
+) {
+  const relationshipDef = schema.resources[resourceType].relationships[relationshipName];
+
+  return resourceType === relationshipDef.type && relationshipDef.key === relationshipName;
 }

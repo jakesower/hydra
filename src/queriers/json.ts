@@ -2,8 +2,8 @@ import { Schema } from '../types';
 import {
   resourceNames,
   canonicalRelationshipNames,
-  canonicalRelationshipName,
-  inverseRelationship,
+  canonicalRelationship,
+  isSymmetricRelationship,
 } from '../lib/schema-functions';
 import {
   mergeChildren,
@@ -11,11 +11,12 @@ import {
   fillObject,
   filterObj,
   findObj,
+  assignChildren,
 } from '../lib/utils';
 
 type InternalGraph = {
   objects: { [k: string]: { [k: string]: { [k: string]: any } } }; // type -> id -> attributes
-  relationships: { [k: string]: { [k: string]: string }[] };
+  relationships: { [k: string]: { local: string; foreign: string }[] };
 };
 
 interface GraphNode {
@@ -36,16 +37,25 @@ interface QueryMany {
   relationships?: { [k: string]: any };
 }
 
+interface Resource {
+  type: string;
+  id: string;
+  attributes: { [k: string]: any };
+  relationships?: {
+    [k: string]: string | string[];
+  };
+}
+
 export function JsonQuerier(schema: Schema, baseState: InternalGraph) {
   const baseObjects = fillObject(resourceNames(schema), {});
   const baseRelationships = fillObject(canonicalRelationshipNames(schema), []);
 
   let state = {
     objects: mergeChildren(baseObjects, baseState.objects),
-    relationships: mergeChildren(baseRelationships, baseState.relationships),
+    relationships: assignChildren([baseRelationships, baseState.relationships]),
   } as InternalGraph;
 
-  return { get };
+  return { get, merge, delete: delete_ };
 
   function get(query: QueryMany): GraphNode[];
   function get(query: QueryOne): GraphNode;
@@ -53,21 +63,59 @@ export function JsonQuerier(schema: Schema, baseState: InternalGraph) {
     return 'id' in query ? getOne(query) : getMany(query);
   }
 
-  // Relationships are always (?) queried from the context of objects.
-  // The formulation is: given object X and relationship type R, what are all Y s.t. the relationship holds
-  // Relationships are stored s.t. left is alphabetically first of type then relationship name. Symmetric relationships don't matter for ordering.
-  // This hopefully makes inverse queries straightforward.
-  // However for performance purposes, it may be useful to store both sides of the relationship. Sync issues are a problem though.
-  // Also LOL on you if you're using this store in an arena requiring good performance.
+  // As of now, support the same stuff that JSONAPI supports. Namely, only a
+  // single object can be touched in a merge call.
+  function merge(resource: Resource) {
+    const { id, type } = resource;
 
-  // Query -> ConcreteGraphWalk? -> GraphNode
+    const base = state.objects[type][id] || {};
+
+    state.objects[type][id] = { ...base, ...resource.attributes };
+    mapObj(resource.relationships || {}, (relationships, relationshipName) => {
+      const symmetric = isSymmetricRelationship(schema, type, relationshipName);
+      const { name: relationshipKey, locality } = canonicalRelationship(
+        schema,
+        type,
+        relationshipName
+      );
+      const filt = symmetric
+        ? arrow => arrow.local !== id && arrow.foreign !== id
+        : arrow => arrow[locality] !== id;
+      const withoutExisting = state.relationships[relationshipKey].filter(filt);
+      const toAdd = (Array.isArray(relationships) ? relationships : [relationships]).map(f =>
+        locality === 'local' ? { local: id, foreign: f } : { local: f, foreign: id }
+      );
+
+      state.relationships[relationshipKey] = [...withoutExisting, ...toAdd];
+    });
+  }
+
+  function delete_(resource: Resource) {
+    const { id, type } = resource;
+    const definition = schema.resources[type];
+
+    delete state.objects[type][id];
+
+    Object.keys(definition.relationships).forEach(relationshipName => {
+      const symmetric = isSymmetricRelationship(schema, type, relationshipName);
+      const { name: relationshipKey, locality } = canonicalRelationship(
+        schema,
+        type,
+        relationshipName
+      );
+      const filt = symmetric
+        ? arrow => arrow.local !== id && arrow.foreign !== id
+        : arrow => arrow[locality] !== id;
+
+      state.relationships[relationshipKey] = state.relationships[relationshipKey].filter(filt);
+    });
+  }
+
   function getOne(query: QueryOne): GraphNode {
     const { type, id } = query;
     const root = state.objects[type][id];
-    const relationships = mapObj(
-      query.relationships || {},
-      (options, relationshipName) =>
-        expandRelationship(query, relationshipName, options)
+    const relationships = mapObj(query.relationships || {}, (options, relationshipName) =>
+      expandRelationship(query, relationshipName, options)
     );
 
     return {
@@ -92,30 +140,29 @@ export function JsonQuerier(schema: Schema, baseState: InternalGraph) {
 
   function expandRelationship(query, relationshipName, options) {
     const { type, id } = query;
-    const relationshipDefinition =
-      schema.resources[type].relationships[relationshipName];
-    const relationshipType = canonicalRelationshipName(
+    const relationshipDefinition = schema.resources[type].relationships[relationshipName];
+    const { name: relationshipType, locality } = canonicalRelationship(
       schema,
       type,
       relationshipName
     );
     const pool = state.relationships[relationshipType];
-    const inverse = inverseRelationship(schema, type, relationshipName);
+    const inverseLocality = locality === 'local' ? 'foreign' : 'local';
 
-    const finder =
-      relationshipDefinition.type === inverse.type
-        ? relArrow => relArrow.left === id || relArrow.right === id
-        : relArrow => relArrow[type] === id;
+    // three possibilities: symmetric, local, foreign
+    const finder = isSymmetricRelationship(schema, type, relationshipName)
+      ? relArrow => relArrow.local === id || relArrow.foreign === id
+      : relArrow => relArrow[locality] === id;
 
     const expand = hit =>
-      relationshipDefinition.type === inverse.type
+      isSymmetricRelationship(schema, type, relationshipName)
         ? getOne({
-            id: hit.left === id ? hit.right : hit.left,
+            id: hit.local === id ? hit.foreign : hit.local,
             type: relationshipDefinition.type,
             relationships: options.relationships,
           })
         : getOne({
-            id: hit[relationshipDefinition.type],
+            id: hit[inverseLocality],
             type: relationshipDefinition.type,
             relationships: options.relationships,
           });

@@ -34,13 +34,17 @@ function inverseRelationship(schema, resourceType, relationshipName) {
     return schema.resources[def.type].relationships[def.inverse];
 }
 exports.inverseRelationship = inverseRelationship;
-function canonicalRelationshipName(schema, resourceType, relationshipName) {
-    const key = def => `${def.type}/${def.key}`;
+function canonicalRelationship(schema, resourceType, relationshipName) {
+    const key = def => `${def.type}/${def.inverse}`;
     const relationshipDef = schema.resources[resourceType].relationships[relationshipName];
     const inverseDef = inverseRelationship(schema, resourceType, relationshipDef.key);
     return key(inverseDef) < key(relationshipDef)
-        ? key(inverseDef)
-        : key(relationshipDef);
+        ? { name: key(inverseDef), locality: 'local' }
+        : { name: key(relationshipDef), locality: 'foreign' };
+}
+exports.canonicalRelationship = canonicalRelationship;
+function canonicalRelationshipName(schema, resourceType, relationshipName) {
+    return canonicalRelationship(schema, resourceType, relationshipName).name;
 }
 exports.canonicalRelationshipName = canonicalRelationshipName;
 function canonicalRelationshipNames(schema) {
@@ -50,3 +54,8 @@ function canonicalRelationshipNames(schema) {
     ], names), []));
 }
 exports.canonicalRelationshipNames = canonicalRelationshipNames;
+function isSymmetricRelationship(schema, resourceType, relationshipName) {
+    const relationshipDef = schema.resources[resourceType].relationships[relationshipName];
+    return resourceType === relationshipDef.type && relationshipDef.key === relationshipName;
+}
+exports.isSymmetricRelationship = isSymmetricRelationship;

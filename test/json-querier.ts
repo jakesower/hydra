@@ -1,7 +1,9 @@
-import test from 'ava';
+import anyTest, { TestInterface } from 'ava';
 import schema from './care-bear-schema.json';
-import { expandSchema } from '../src/lib/schema-functions';
+import { expandSchema, relationshipNames } from '../src/lib/schema-functions';
 import { JsonQuerier } from '../src/queriers/json';
+
+const test = anyTest as TestInterface<any>;
 
 const storeState = {
   objects: {
@@ -16,7 +18,7 @@ const storeState = {
         name: 'Cheer Bear',
         gender: 'female',
         belly_badge: 'rainbow',
-        fur_color: 'carnation pink',
+        fur_color: 'pink',
       },
       3: {
         name: 'Wish Bear',
@@ -31,18 +33,34 @@ const storeState = {
   },
   relationships: {
     'bears/home': [
-      { bears: '1', homes: '1' },
-      { bears: '2', homes: '1' },
-      { bears: '3', homes: '1' },
+      { local: '1', foreign: '1' },
+      { local: '2', foreign: '1' },
+      { local: '3', foreign: '1' },
     ],
-    'bears/best_friend': [{ left: '2', right: '3' }],
+    'bears/best_friend': [{ local: '2', foreign: '3' }],
   },
 };
 
-const store = JsonQuerier(expandSchema(schema), storeState);
+const grumpyBear = {
+  type: 'bears',
+  id: '4',
+  attributes: {
+    name: 'Grumpy Bear',
+    gender: 'male',
+    belly_badge: 'raincloud',
+    fur_color: 'blue',
+  },
+  // relationships: {
+  //   home: '1',
+  // },
+};
+
+test.beforeEach(t => {
+  t.context = { store: JsonQuerier(expandSchema(schema), storeState) };
+});
 
 test('fetches a single resource', t => {
-  const result = store.get({ type: 'bears', id: '1' });
+  const result = t.context.store.get({ type: 'bears', id: '1' });
 
   t.deepEqual(result, {
     type: 'bears',
@@ -53,7 +71,7 @@ test('fetches a single resource', t => {
 });
 
 test('fetches a single resource with a single relationship', t => {
-  const result = store.get({
+  const result = t.context.store.get({
     type: 'bears',
     id: '1',
     relationships: { home: {} },
@@ -75,7 +93,7 @@ test('fetches a single resource with a single relationship', t => {
 });
 
 test('fetches multiple relationships of various types', t => {
-  const result = store.get({
+  const result = t.context.store.get({
     type: 'bears',
     id: '1',
     relationships: {
@@ -126,7 +144,7 @@ test('fetches multiple relationships of various types', t => {
 });
 
 test('handles relationships between the same type', t => {
-  const result = store.get({
+  const result = t.context.store.get({
     type: 'bears',
     relationships: {
       best_friend: {},
@@ -168,3 +186,86 @@ test('handles relationships between the same type', t => {
     },
   ]);
 });
+
+test('creates new objects without relationships', t => {
+  t.context.store.merge(grumpyBear);
+
+  const result = t.context.store.get({
+    type: 'bears',
+    id: '4',
+  });
+
+  t.deepEqual(result, {
+    type: 'bears',
+    id: '4',
+    attributes: grumpyBear.attributes,
+    relationships: {},
+  });
+});
+
+test('creates new objects with a relationship', t => {
+  t.context.store.merge({
+    ...grumpyBear,
+    relationships: { home: '1' },
+  });
+
+  const result = t.context.store.get({
+    type: 'bears',
+    id: '4',
+    relationships: { home: {} },
+  });
+
+  t.deepEqual(result, {
+    type: 'bears',
+    id: '4',
+    attributes: grumpyBear.attributes,
+    relationships: {
+      home: {
+        type: 'homes',
+        id: '1',
+        attributes: storeState.objects.homes['1'],
+        relationships: {},
+      },
+    },
+  });
+});
+
+test('merges into existing objects', t => {
+  t.context.store.merge({
+    type: 'bears',
+    id: '2',
+    attributes: { fur_color: 'carnation pink' },
+  });
+
+  const result = t.context.store.get({
+    type: 'bears',
+    id: '2',
+  });
+
+  t.deepEqual(result, {
+    type: 'bears',
+    id: '2',
+    attributes: { ...storeState.objects.bears['2'], fur_color: 'carnation pink' },
+    relationships: {},
+  });
+});
+
+test('deletes objects', t => {
+  t.context.store.delete({ type: 'bears', id: '1' });
+  const result = t.context.store.get({
+    type: 'bears',
+    id: '4',
+    relationships: { home: {} },
+  });
+
+  const relResult = t.context.store.get({
+    type: 'homes',
+    id: '1',
+    relationships: { bears: {} },
+  });
+
+  t.is(result.attributes, undefined);
+  t.is(relResult.relationships.bears.length, 2);
+});
+
+// need a non-symmetric self join relationship test

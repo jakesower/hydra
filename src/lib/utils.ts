@@ -12,6 +12,19 @@ export function appendKeys<T, K extends keyof T>(
   return result;
 }
 
+export function assignChildren(
+  objs: { [k: string]: { [k: string]: any } }[]
+): { [k: string]: { [k: string]: any } } {
+  let out = {};
+
+  objs.forEach(obj => {
+    for (let k of Object.keys(obj)) {
+      out[k] = obj[k];
+    }
+  });
+  return out;
+}
+
 export function chainPipeThru(val: any, fns: ((x: any) => any)[]) {
   return fns.reduce((acc, fn) => acc.chain(fn), val);
 }
@@ -52,10 +65,7 @@ export function filterObj<T>(
   return out;
 }
 
-export function findObj<T>(
-  obj: { [k: string]: T },
-  predicateFn: (x: T) => boolean
-): T | null {
+export function findObj<T>(obj: { [k: string]: T }, predicateFn: (x: T) => boolean): T | null {
   for (const key of Object.keys(obj)) {
     if (predicateFn(obj[key])) {
       return obj[key];
@@ -66,9 +76,7 @@ export function findObj<T>(
 }
 
 // e.g. {a: {inner: 'thing'}, b: {other: 'item'}} => {a: {key: 'a', inner: 'thing'}, b: {key: 'b', other: 'item'}}
-export function inlineKey<T, K extends keyof T>(
-  obj: T
-): { [k: string]: T[K] & { key: string } } {
+export function inlineKey<T, K extends keyof T>(obj: T): { [k: string]: T[K] & { key: string } } {
   let result = {};
   const keys = Object.keys(obj);
   for (let key of keys) {
@@ -104,9 +112,7 @@ export function maxStable<T>(fn: (a: T) => Ord, xs: T[]): T {
   return out;
 }
 
-export function mergeAll<T>(
-  items: { [k in string]: T }[]
-): { [k in string]: T } {
+export function mergeAll<T>(items: { [k in string]: T }[]): { [k in string]: T } {
   const init: { [k in string]: T } = {};
   return items.reduce((merged, arg) => ({ ...merged, ...arg }), init);
 }
@@ -145,10 +151,7 @@ export function overPath(obj, path, fn) {
   };
 }
 
-export function omitKeys<T>(
-  obj: { [k: string]: T },
-  nix: string[]
-): { [k: string]: T } {
+export function omitKeys<T>(obj: { [k: string]: T }, nix: string[]): { [k: string]: T } {
   let out = {};
   for (let key of Object.keys(obj)) {
     if (!nix.includes(key)) {
@@ -166,10 +169,7 @@ export function pipeThru(val: any, fns: ((x: any) => any)[]): any {
   return pipe(fns)(val);
 }
 
-export function pluckKeys<T>(
-  obj: { [k: string]: T },
-  keep: string[]
-): { [k: string]: T } {
+export function pluckKeys<T>(obj: { [k: string]: T }, keep: string[]): { [k: string]: T } {
   let out = {};
   for (let key of keep) {
     if (key in obj) {
@@ -184,10 +184,7 @@ export function reduceObj<T, U>(
   init: U,
   reducer: (acc: U, v: T, k: string) => U
 ): U {
-  return Object.keys(obj).reduce(
-    (acc, key) => reducer(acc, obj[key], key),
-    init
-  );
+  return Object.keys(obj).reduce((acc, key) => reducer(acc, obj[key], key), init);
 }
 
 export function sortBy<T>(fn: (a: T, b: T) => number, xs: T[]): T[] {
