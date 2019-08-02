@@ -1,4 +1,3 @@
-import { Schema } from '../types';
 import {
   resourceNames,
   canonicalRelationshipNames,
@@ -14,58 +13,38 @@ import {
   assignChildren,
 } from '../lib/utils';
 
-type InternalGraph = {
-  objects: { [k: string]: { [k: string]: { [k: string]: any } } }; // type -> id -> attributes
-  relationships: { [k: string]: { local: string; foreign: string }[] };
-};
-
-interface GraphNode {
-  type: string;
-  id: string;
-  attributes: { [k: string]: any };
-  relationships: { [k: string]: GraphNode | GraphNode[] | null };
-}
-
-interface QueryOne {
-  type: string;
-  id: string;
-  relationships?: { [k: string]: any };
-}
-
-interface QueryMany {
-  type: string;
-  relationships?: { [k: string]: any };
-}
-
-interface Resource {
-  type: string;
-  id: string;
-  attributes: { [k: string]: any };
-  relationships?: {
-    [k: string]: string | string[];
-  };
-}
-
-export function JsonQuerier(schema: Schema, baseState: InternalGraph) {
+export function JsonQuerier(schema, baseState) {
   const baseObjects = fillObject(resourceNames(schema), {});
   const baseRelationships = fillObject(canonicalRelationshipNames(schema), []);
 
   let state = {
-    objects: mergeChildren(baseObjects, baseState.objects),
-    relationships: assignChildren([baseRelationships, baseState.relationships]),
-  } as InternalGraph;
+    objects: mergeChildren(baseObjects, baseState.objects || {}),
+    relationships: assignChildren([baseRelationships, baseState.relationships || {}]),
+  };
 
-  return { get, merge, delete: delete_ };
+  return function(action) {
+    if ('get' in action) {
+      return Promise.resolve({ get: get(action.get) });
+    }
 
-  function get(query: QueryMany): GraphNode[];
-  function get(query: QueryOne): GraphNode;
-  function get(query: QueryOne | QueryMany): GraphNode | GraphNode[] {
+    if ('merge' in action) {
+      return Promise.resolve({ merge: merge(action.merge) });
+    }
+
+    if ('delete' in action) {
+      return Promise.resolve({ merge: delete_(action.delete) });
+    }
+
+    throw 'boom';
+  };
+
+  function get(query) {
     return 'id' in query ? getOne(query) : getMany(query);
   }
 
   // As of now, support the same stuff that JSONAPI supports. Namely, only a
-  // single object can be touched in a merge call.
-  function merge(resource: Resource) {
+  // single object can be touched in a merge call. This should be revisited.
+  function merge(resource) {
     const { id, type } = resource;
 
     const base = state.objects[type][id] || {};
@@ -90,7 +69,7 @@ export function JsonQuerier(schema: Schema, baseState: InternalGraph) {
     });
   }
 
-  function delete_(resource: Resource) {
+  function delete_(resource) {
     const { id, type } = resource;
     const definition = schema.resources[type];
 
@@ -111,9 +90,14 @@ export function JsonQuerier(schema: Schema, baseState: InternalGraph) {
     });
   }
 
-  function getOne(query: QueryOne): GraphNode {
+  function getOne(query) {
     const { type, id } = query;
     const root = state.objects[type][id];
+
+    if (!root) {
+      return null;
+    }
+
     const relationships = mapObj(query.relationships || {}, (options, relationshipName) =>
       expandRelationship(query, relationshipName, options)
     );
@@ -126,7 +110,7 @@ export function JsonQuerier(schema: Schema, baseState: InternalGraph) {
     };
   }
 
-  function getMany(query: QueryMany): GraphNode[] {
+  function getMany(query) {
     return Object.values(
       mapObj(state.objects[query.type], (_, id) =>
         getOne({

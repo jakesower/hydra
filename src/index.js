@@ -1,32 +1,8 @@
-import {
-  RequestHandler,
-  Querier,
-  Responder,
-  HydraError,
-  QueryGraph,
-  HydraResponse,
-  Schema,
-} from './types';
-import { IncomingMessage, ServerResponse } from 'http';
 import { xprod, mergeAll } from './lib/utils';
-import { sequencePromise, Either, flattenEither } from './lib/either';
+import { mapHydraError } from './lib/hydra-utils';
 
-interface TypeMatcher {
-  type: string;
-  subType: string;
-  q: number;
-  params: { [k: string]: string };
-}
-
-type QuerierInput = Either<HydraError, QueryGraph>;
-
-export function hydra(
-  requestHandlers: { [k: string]: RequestHandler },
-  querier: Querier,
-  responders: { [k: string]: Responder },
-  schema: Schema
-) {
-  return (req: IncomingMessage, res: ServerResponse) => {
+export function hydra(requestHandlers, querier, responders, schema) {
+  return async (req, res) => {
     try {
       const responder = selectResponder(responders, req.headers.accept || '');
 
@@ -44,24 +20,19 @@ export function hydra(
         return sendResponse({ code: 415, headers: {}, body: '' }, res);
       }
 
-      return requestHandler(req, schema)
-        .then((query: QuerierInput) => {
-          const sequenced = sequencePromise(query.map(q => querier(q, schema)));
-          return sequenced.then(flattenEither);
-        })
-        .then(r => responder(r, schema))
-        .then(outcome => sendResponse(outcome, res))
-        .catch(err => {
-          console.error(err);
-          sendResponse({ code: 500, headers: {}, body: '' }, res);
-        });
+      const action = await requestHandler(req, schema);
+      const actionResult = await mapHydraError(action, a => querier(a, schema));
+      const response = await responder(action, actionResult);
+
+      sendResponse(response, res);
     } catch (err) {
+      console.log(err);
       return sendResponse({ code: 500, headers: {}, body: '' }, res);
     }
   };
 }
 
-function sendResponse(response: HydraResponse, resHandle: ServerResponse) {
+function sendResponse(response, resHandle) {
   resHandle.statusCode = response.code;
   Object.keys(response.headers).forEach(k => {
     resHandle.setHeader(k, response.headers[k]);
@@ -70,12 +41,12 @@ function sendResponse(response: HydraResponse, resHandle: ServerResponse) {
   resHandle.end();
 }
 
-function clean(s: string): string {
+function clean(s) {
   // TODO: Handle quoted parameters: https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.4
   return s.replace(/\s/g, '');
 }
 
-function acceptTable(rawTypeStr: string): TypeMatcher {
+function acceptTable(rawTypeStr) {
   const [typeStr, ...rawParams] = clean(rawTypeStr).split(';');
   const [type, subType] = typeStr.split('/');
   const params = mergeAll(
@@ -101,19 +72,16 @@ function matchesType(concreteType, typeDef) {
   );
 }
 
-function parseAccept(acceptString: string): TypeMatcher[] {
+function parseAccept(acceptString) {
   return acceptString.split(',').map(acceptTable);
 }
 
-function selectResponder(
-  responders: { [k: string]: Responder },
-  acceptString: string
-): Responder | null {
+function selectResponder(responders, acceptString) {
   const parsed = parseAccept(acceptString);
   const pairings = xprod(Object.keys(responders), parsed);
 
-  const init: [string | null, number] = [null, 0];
-  const pair: [string | null, number] = pairings.reduce(
+  const init = [null, 0];
+  const pair = pairings.reduce(
     ([bestType, bestQ], [respType, typeDef]) =>
       typeDef.q > bestQ && matchesType(respType, typeDef)
         ? [respType, typeDef.q]
@@ -124,10 +92,7 @@ function selectResponder(
   return pair[0] !== null ? responders[pair[0]] : null;
 }
 
-function selectRequestHandler(
-  requestHandlers: { [k: string]: RequestHandler },
-  contentType: string
-): RequestHandler | null {
+function selectRequestHandler(requestHandlers, contentType) {
   const handler = Object.keys(requestHandlers).find(k => {
     const [type, subType] = k.split('/');
     return matchesType(contentType, { type, subType });

@@ -9,6 +9,16 @@ function appendKeys(base, other) {
     return result;
 }
 exports.appendKeys = appendKeys;
+function assignChildren(objs) {
+    let out = {};
+    objs.forEach(obj => {
+        for (let k of Object.keys(obj)) {
+            out[k] = obj[k];
+        }
+    });
+    return out;
+}
+exports.assignChildren = assignChildren;
 function chainPipeThru(val, fns) {
     return fns.reduce((acc, fn) => acc.chain(fn), val);
 }
@@ -52,6 +62,10 @@ function findObj(obj, predicateFn) {
     return null;
 }
 exports.findObj = findObj;
+function flatMap(xs, fn) {
+    return makeFlat(xs.map(fn), false);
+}
+exports.flatMap = flatMap;
 // e.g. {a: {inner: 'thing'}, b: {other: 'item'}} => {a: {key: 'a', inner: 'thing'}, b: {key: 'b', other: 'item'}}
 function inlineKey(obj) {
     let result = {};

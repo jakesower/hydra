@@ -50,222 +50,291 @@ const grumpyBear = {
     belly_badge: 'raincloud',
     fur_color: 'blue',
   },
-  // relationships: {
-  //   home: '1',
-  // },
+  relationships: {
+    home: '1',
+  },
 };
 
 test.beforeEach(t => {
   t.context = { store: JsonQuerier(expandSchema(schema), storeState) };
 });
 
-test('fetches a single resource', t => {
-  const result = t.context.store.get({ type: 'bears', id: '1' });
+test('fetches a single resource', async t => {
+  const result = await t.context.store({ get: { type: 'bears', id: '1' } });
 
   t.deepEqual(result, {
-    type: 'bears',
-    id: '1',
-    attributes: storeState.objects.bears['1'],
-    relationships: {},
-  });
-});
-
-test('fetches a single resource with a single relationship', t => {
-  const result = t.context.store.get({
-    type: 'bears',
-    id: '1',
-    relationships: { home: {} },
-  });
-
-  t.deepEqual(result, {
-    type: 'bears',
-    id: '1',
-    attributes: storeState.objects.bears['1'],
-    relationships: {
-      home: {
-        type: 'homes',
-        id: '1',
-        attributes: storeState.objects.homes['1'],
-        relationships: {},
-      },
-    },
-  });
-});
-
-test('fetches multiple relationships of various types', t => {
-  const result = t.context.store.get({
-    type: 'bears',
-    id: '1',
-    relationships: {
-      home: {
-        relationships: {
-          bears: {},
-        },
-      },
-      powers: {},
-    },
-  });
-
-  t.deepEqual(result, {
-    type: 'bears',
-    id: '1',
-    attributes: storeState.objects.bears['1'],
-    relationships: {
-      home: {
-        type: 'homes',
-        id: '1',
-        attributes: storeState.objects.homes['1'],
-        relationships: {
-          bears: [
-            {
-              type: 'bears',
-              id: '1',
-              attributes: storeState.objects.bears['1'],
-              relationships: {},
-            },
-            {
-              type: 'bears',
-              id: '2',
-              attributes: storeState.objects.bears['2'],
-              relationships: {},
-            },
-            {
-              type: 'bears',
-              id: '3',
-              attributes: storeState.objects.bears['3'],
-              relationships: {},
-            },
-          ],
-        },
-      },
-      powers: [],
-    },
-  });
-});
-
-test('handles relationships between the same type', t => {
-  const result = t.context.store.get({
-    type: 'bears',
-    relationships: {
-      best_friend: {},
-    },
-  });
-
-  t.deepEqual(result, [
-    {
+    get: {
       type: 'bears',
       id: '1',
       attributes: storeState.objects.bears['1'],
-      relationships: { best_friend: null },
+      relationships: {},
     },
-    {
-      type: 'bears',
-      id: '2',
-      attributes: storeState.objects.bears['2'],
-      relationships: {
-        best_friend: {
-          type: 'bears',
-          id: '3',
-          attributes: storeState.objects.bears['3'],
-          relationships: {},
-        },
-      },
-    },
-    {
-      type: 'bears',
-      id: '3',
-      attributes: storeState.objects.bears['3'],
-      relationships: {
-        best_friend: {
-          type: 'bears',
-          id: '2',
-          attributes: storeState.objects.bears['2'],
-          relationships: {},
-        },
-      },
-    },
-  ]);
-});
-
-test('creates new objects without relationships', t => {
-  t.context.store.merge(grumpyBear);
-
-  const result = t.context.store.get({
-    type: 'bears',
-    id: '4',
-  });
-
-  t.deepEqual(result, {
-    type: 'bears',
-    id: '4',
-    attributes: grumpyBear.attributes,
-    relationships: {},
   });
 });
 
-test('creates new objects with a relationship', t => {
-  t.context.store.merge({
-    ...grumpyBear,
-    relationships: { home: '1' },
-  });
-
-  const result = t.context.store.get({
-    type: 'bears',
-    id: '4',
-    relationships: { home: {} },
-  });
+test('does not fetch a nonexistent resource', async t => {
+  const result = await t.context.store({ get: { type: 'bears', id: '6' } });
 
   t.deepEqual(result, {
-    type: 'bears',
-    id: '4',
-    attributes: grumpyBear.attributes,
-    relationships: {
-      home: {
-        type: 'homes',
+    get: null,
+  });
+});
+
+test('fetches multiple resources', async t => {
+  const result = await t.context.store({ get: { type: 'bears' } });
+
+  t.deepEqual(result, {
+    get: [
+      {
+        type: 'bears',
         id: '1',
-        attributes: storeState.objects.homes['1'],
+        attributes: storeState.objects.bears['1'],
         relationships: {},
       },
+      {
+        type: 'bears',
+        id: '2',
+        attributes: storeState.objects.bears['2'],
+        relationships: {},
+      },
+      {
+        type: 'bears',
+        id: '3',
+        attributes: storeState.objects.bears['3'],
+        relationships: {},
+      },
+    ],
+  });
+});
+
+test('fetches a single resource with a single relationship', async t => {
+  const result = await t.context.store({
+    get: {
+      type: 'bears',
+      id: '1',
+      relationships: { home: {} },
+    },
+  });
+
+  t.deepEqual(result, {
+    get: {
+      type: 'bears',
+      id: '1',
+      attributes: storeState.objects.bears['1'],
+      relationships: {
+        home: {
+          type: 'homes',
+          id: '1',
+          attributes: storeState.objects.homes['1'],
+          relationships: {},
+        },
+      },
     },
   });
 });
 
-test('merges into existing objects', t => {
-  t.context.store.merge({
-    type: 'bears',
-    id: '2',
-    attributes: { fur_color: 'carnation pink' },
-  });
-
-  const result = t.context.store.get({
-    type: 'bears',
-    id: '2',
+test('fetches multiple relationships of various types', async t => {
+  const result = await t.context.store({
+    get: {
+      type: 'bears',
+      id: '1',
+      relationships: {
+        home: {
+          relationships: {
+            bears: {},
+          },
+        },
+        powers: {},
+      },
+    },
   });
 
   t.deepEqual(result, {
-    type: 'bears',
-    id: '2',
-    attributes: { ...storeState.objects.bears['2'], fur_color: 'carnation pink' },
-    relationships: {},
+    get: {
+      type: 'bears',
+      id: '1',
+      attributes: storeState.objects.bears['1'],
+      relationships: {
+        home: {
+          type: 'homes',
+          id: '1',
+          attributes: storeState.objects.homes['1'],
+          relationships: {
+            bears: [
+              {
+                type: 'bears',
+                id: '1',
+                attributes: storeState.objects.bears['1'],
+                relationships: {},
+              },
+              {
+                type: 'bears',
+                id: '2',
+                attributes: storeState.objects.bears['2'],
+                relationships: {},
+              },
+              {
+                type: 'bears',
+                id: '3',
+                attributes: storeState.objects.bears['3'],
+                relationships: {},
+              },
+            ],
+          },
+        },
+        powers: [],
+      },
+    },
   });
 });
 
-test('deletes objects', t => {
-  t.context.store.delete({ type: 'bears', id: '1' });
-  const result = t.context.store.get({
-    type: 'bears',
-    id: '4',
-    relationships: { home: {} },
+test('handles relationships between the same type', async t => {
+  const result = await t.context.store({
+    get: {
+      type: 'bears',
+      relationships: {
+        best_friend: {},
+      },
+    },
   });
 
-  const relResult = t.context.store.get({
-    type: 'homes',
-    id: '1',
-    relationships: { bears: {} },
+  t.deepEqual(result, {
+    get: [
+      {
+        type: 'bears',
+        id: '1',
+        attributes: storeState.objects.bears['1'],
+        relationships: { best_friend: null },
+      },
+      {
+        type: 'bears',
+        id: '2',
+        attributes: storeState.objects.bears['2'],
+        relationships: {
+          best_friend: {
+            type: 'bears',
+            id: '3',
+            attributes: storeState.objects.bears['3'],
+            relationships: {},
+          },
+        },
+      },
+      {
+        type: 'bears',
+        id: '3',
+        attributes: storeState.objects.bears['3'],
+        relationships: {
+          best_friend: {
+            type: 'bears',
+            id: '2',
+            attributes: storeState.objects.bears['2'],
+            relationships: {},
+          },
+        },
+      },
+    ],
+  });
+});
+
+test('creates new objects without relationships', async t => {
+  t.context.store({ merge: grumpyBear });
+
+  const result = await t.context.store({
+    get: {
+      type: 'bears',
+      id: '4',
+    },
+  });
+
+  t.deepEqual(result, {
+    get: {
+      type: 'bears',
+      id: '4',
+      attributes: grumpyBear.attributes,
+      relationships: {},
+    },
+  });
+});
+
+test('creates new objects with a relationship', async t => {
+  await t.context.store({
+    merge: {
+      ...grumpyBear,
+      relationships: { home: '1' },
+    },
+  });
+
+  const result = await t.context.store({
+    get: {
+      type: 'bears',
+      id: '4',
+      relationships: { home: {} },
+    },
+  });
+
+  t.deepEqual(result, {
+    get: {
+      type: 'bears',
+      id: '4',
+      attributes: grumpyBear.attributes,
+      relationships: {
+        home: {
+          type: 'homes',
+          id: '1',
+          attributes: storeState.objects.homes['1'],
+          relationships: {},
+        },
+      },
+    },
+  });
+});
+
+test('merges into existing objects', async t => {
+  await t.context.store({
+    merge: {
+      type: 'bears',
+      id: '2',
+      attributes: { fur_color: 'carnation pink' },
+    },
+  });
+
+  const result = await t.context.store({
+    get: {
+      type: 'bears',
+      id: '2',
+    },
+  });
+
+  t.deepEqual(result, {
+    get: {
+      type: 'bears',
+      id: '2',
+      attributes: { ...storeState.objects.bears['2'], fur_color: 'carnation pink' },
+      relationships: {},
+    },
+  });
+});
+
+test('deletes objects', async t => {
+  await t.context.store({ delete: { type: 'bears', id: '1' } });
+  const result = await t.context.store({
+    get: {
+      type: 'bears',
+      id: '4',
+      relationships: { home: {} },
+    },
+  });
+
+  const relResult = await t.context.store({
+    get: {
+      type: 'homes',
+      id: '1',
+      relationships: { bears: {} },
+    },
   });
 
   t.is(result.attributes, undefined);
-  t.is(relResult.relationships.bears.length, 2);
+  t.is(relResult.get.relationships.bears.length, 2);
 });
 
 // need a non-symmetric self join relationship test

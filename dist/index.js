@@ -1,9 +1,17 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const utils_1 = require("./lib/utils");
-const either_1 = require("./lib/either");
+const hydra_utils_1 = require("./lib/hydra-utils");
 function hydra(requestHandlers, querier, responders, schema) {
-    return (req, res) => {
+    return (req, res) => __awaiter(this, void 0, void 0, function* () {
         try {
             const responder = selectResponder(responders, req.headers.accept || '');
             if (!responder) {
@@ -14,22 +22,16 @@ function hydra(requestHandlers, querier, responders, schema) {
             if (!requestHandler) {
                 return sendResponse({ code: 415, headers: {}, body: '' }, res);
             }
-            return requestHandler(req, schema)
-                .then((query) => {
-                const sequenced = either_1.sequencePromise(query.map(q => querier(q, schema)));
-                return sequenced.then(either_1.flattenEither);
-            })
-                .then(r => responder(r, schema))
-                .then(outcome => sendResponse(outcome, res))
-                .catch(err => {
-                console.error(err);
-                sendResponse({ code: 500, headers: {}, body: '' }, res);
-            });
+            const action = yield requestHandler(req, schema);
+            const actionResult = yield hydra_utils_1.mapHydraError(action, a => querier(a, schema));
+            const response = yield responder(action, actionResult);
+            sendResponse(response, res);
         }
         catch (err) {
+            console.log(err);
             return sendResponse({ code: 500, headers: {}, body: '' }, res);
         }
-    };
+    });
 }
 exports.hydra = hydra;
 function sendResponse(response, resHandle) {

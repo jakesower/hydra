@@ -75,6 +75,10 @@ export function findObj<T>(obj: { [k: string]: T }, predicateFn: (x: T) => boole
   return null;
 }
 
+export function flatMap<T>(xs: T[], fn: (x: T) => T[]): T[] {
+  return makeFlat(xs.map(fn), false);
+}
+
 // e.g. {a: {inner: 'thing'}, b: {other: 'item'}} => {a: {key: 'a', inner: 'thing'}, b: {key: 'b', other: 'item'}}
 export function inlineKey<T, K extends keyof T>(obj: T): { [k: string]: T[K] & { key: string } } {
   let result = {};

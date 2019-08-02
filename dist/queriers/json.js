@@ -6,31 +6,52 @@ function JsonQuerier(schema, baseState) {
     const baseObjects = utils_1.fillObject(schema_functions_1.resourceNames(schema), {});
     const baseRelationships = utils_1.fillObject(schema_functions_1.canonicalRelationshipNames(schema), []);
     let state = {
-        objects: utils_1.mergeChildren(baseObjects, baseState.objects),
-        relationships: utils_1.mergeChildren(baseRelationships, baseState.relationships),
+        objects: utils_1.mergeChildren(baseObjects, baseState.objects || {}),
+        relationships: utils_1.assignChildren([baseRelationships, baseState.relationships || {}]),
     };
-    return { get, merge };
+    return function (action) {
+        if ('get' in action) {
+            return Promise.resolve({ get: get(action.get) });
+        }
+        if ('merge' in action) {
+            return Promise.resolve({ merge: merge(action.merge) });
+        }
+        if ('delete' in action) {
+            return Promise.resolve({ merge: delete_(action.delete) });
+        }
+        throw 'boom';
+    };
     function get(query) {
         return 'id' in query ? getOne(query) : getMany(query);
     }
     // As of now, support the same stuff that JSONAPI supports. Namely, only a
-    // single object can be touched in a merge call.
+    // single object can be touched in a merge call. This should be revisited.
     function merge(resource) {
         const { id, type } = resource;
         const base = state.objects[type][id] || {};
         state.objects[type][id] = Object.assign({}, base, resource.attributes);
         utils_1.mapObj(resource.relationships || {}, (relationships, relationshipName) => {
             const symmetric = schema_functions_1.isSymmetricRelationship(schema, type, relationshipName);
-            const { name: arrowName, locality } = schema_functions_1.canonicalRelationship(schema, type, relationshipName);
-            const relationshipKey = schema_functions_1.canonicalRelationshipName(schema, type, relationshipName);
+            const { name: relationshipKey, locality } = schema_functions_1.canonicalRelationship(schema, type, relationshipName);
             const filt = symmetric
-                ? arrow => arrow.local === id || arrow.foreign === id
-                : locality === 'local'
-                    ? arrow => arrow.local === id
-                    : arrow => arrow.foreign === id;
+                ? arrow => arrow.local !== id && arrow.foreign !== id
+                : arrow => arrow[locality] !== id;
             const withoutExisting = state.relationships[relationshipKey].filter(filt);
             const toAdd = (Array.isArray(relationships) ? relationships : [relationships]).map(f => locality === 'local' ? { local: id, foreign: f } : { local: f, foreign: id });
             state.relationships[relationshipKey] = [...withoutExisting, ...toAdd];
+        });
+    }
+    function delete_(resource) {
+        const { id, type } = resource;
+        const definition = schema.resources[type];
+        delete state.objects[type][id];
+        Object.keys(definition.relationships).forEach(relationshipName => {
+            const symmetric = schema_functions_1.isSymmetricRelationship(schema, type, relationshipName);
+            const { name: relationshipKey, locality } = schema_functions_1.canonicalRelationship(schema, type, relationshipName);
+            const filt = symmetric
+                ? arrow => arrow.local !== id && arrow.foreign !== id
+                : arrow => arrow[locality] !== id;
+            state.relationships[relationshipKey] = state.relationships[relationshipKey].filter(filt);
         });
     }
     function getOne(query) {
@@ -54,21 +75,21 @@ function JsonQuerier(schema, baseState) {
     function expandRelationship(query, relationshipName, options) {
         const { type, id } = query;
         const relationshipDefinition = schema.resources[type].relationships[relationshipName];
-        const relationshipType = schema_functions_1.canonicalRelationshipName(schema, type, relationshipName);
+        const { name: relationshipType, locality } = schema_functions_1.canonicalRelationship(schema, type, relationshipName);
         const pool = state.relationships[relationshipType];
-        const inverse = schema_functions_1.inverseRelationship(schema, type, relationshipName);
+        const inverseLocality = locality === 'local' ? 'foreign' : 'local';
         // three possibilities: symmetric, local, foreign
-        const finder = relationshipDefinition.type === inverse.type
-            ? relArrow => relArrow.left === id || relArrow.right === id
-            : relArrow => relArrow[type] === id;
-        const expand = hit => relationshipDefinition.type === inverse.type
+        const finder = schema_functions_1.isSymmetricRelationship(schema, type, relationshipName)
+            ? relArrow => relArrow.local === id || relArrow.foreign === id
+            : relArrow => relArrow[locality] === id;
+        const expand = hit => schema_functions_1.isSymmetricRelationship(schema, type, relationshipName)
             ? getOne({
-                id: hit.left === id ? hit.right : hit.left,
+                id: hit.local === id ? hit.foreign : hit.local,
                 type: relationshipDefinition.type,
                 relationships: options.relationships,
             })
             : getOne({
-                id: hit[relationshipDefinition.type],
+                id: hit[inverseLocality],
                 type: relationshipDefinition.type,
                 relationships: options.relationships,
             });
