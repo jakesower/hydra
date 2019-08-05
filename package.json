@@ -12,8 +12,8 @@
     "watch-sass": "mkdirp dist/styles && node-sass -wr assets/styles/main.scss --output-style=compressed -o dist/styles",
     "watch": "concurrently \"npm run watch-js\" \"npm run watch-sass\"",
     "start": "ts-node ./server.js",
-    "test": "tsc && ava",
-    "test-watch": "tsc && ava -w"
+    "test": "ava",
+    "test-watch": "ava -w"
   },
   "devDependencies": {
     "@types/chai": "^4.1.7",
@@ -41,6 +41,6 @@
     "require": [
       "ts-node/register"
     ],
-    "files": "test/*.ts"
+    "files": "test/*.js"
   }
 }

@@ -8,7 +8,24 @@ const utils_1 = require("../lib/utils");
 const hydra_utils_1 = require("../lib/hydra-utils");
 const either_1 = require("../lib/either");
 const v4_1 = __importDefault(require("uuid/v4"));
-function JsonApiRequestHandler(request, schema) {
+/*
+  possible params:
+
+  - fields (dogmatic)
+  - sort (dogmatic)
+  - page (dogmatic)
+  - filter (loose)
+
+  other stuff:
+
+  - relationship urls
+  - unrecognized params without a non a-z character must return 400
+
+  assumptions that should be configs:
+
+  - IDs created on client side
+*/
+function JsonApiRequestHandler({ request, schema, querier }) {
     const paramHandlers = {
         include: includeHandler,
     };
@@ -44,6 +61,20 @@ function JsonApiRequestHandler(request, schema) {
     function validateSchema(request) {
         return either_1.Ok(request);
     }
+    /**
+     * GET requests
+     *
+     * Per spec, three types must be supported:
+     * GET /articles
+     * GET /articles/1
+     * GET /articles/1/author
+     *
+     * The first two cases are straightforward in light of the query format, however the third form requires
+     *
+     * BIG QUESTION -- Should request-handlers receive a querier as an argument? It allows any kind of
+     * queries to be understood and handled, but is much more coupled, except from a DI POV.
+     *
+     */
     function buildQuery(request) {
         const { pathname, query } = url_1.parse(request.url, true);
         const chunks = (pathname || '').split('/').splice(1);

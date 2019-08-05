@@ -9,18 +9,23 @@ function JsonQuerier(schema, baseState) {
         objects: utils_1.mergeChildren(baseObjects, baseState.objects || {}),
         relationships: utils_1.assignChildren([baseRelationships, baseState.relationships || {}]),
     };
-    return function (action) {
-        if ('get' in action) {
-            return Promise.resolve({ get: get(action.get) });
-        }
-        if ('merge' in action) {
-            return Promise.resolve({ merge: merge(action.merge) });
-        }
-        if ('delete' in action) {
-            return Promise.resolve({ merge: delete_(action.delete) });
-        }
-        throw 'boom';
+    const dispatchMap = {
+        get,
+        merge,
+        delete: delete_,
+        appendRelationship,
+        replaceRelationship,
+        replaceRelationships: replaceRelationship,
+        deleteRelationship,
     };
+    return function (action) {
+        const actionKey = Object.keys(dispatchMap).find(k => k in action);
+        if (!actionKey) {
+            return Promise.reject('unrecognized action!');
+        }
+        return Promise.resolve(dispatchMap[actionKey](action[actionKey]));
+    };
+    // Main actions
     function get(query) {
         return 'id' in query ? getOne(query) : getMany(query);
     }
@@ -54,9 +59,34 @@ function JsonQuerier(schema, baseState) {
             state.relationships[relationshipKey] = state.relationships[relationshipKey].filter(filt);
         });
     }
+    function appendRelationship() {
+        const symmetric = schema_functions_1.isSymmetricRelationship(schema, type, relationshipName);
+        const { name: relationshipKey, locality } = schema_functions_1.canonicalRelationship(schema, type, relationshipName);
+        const filt = symmetric
+            ? arrow => arrow.local !== id && arrow.foreign !== id
+            : arrow => arrow[locality] !== id;
+        const withoutExisting = state.relationships[relationshipKey].filter(filt);
+        const toAdd = (Array.isArray(foreignId) ? foreignId : [foreignId]).map(f => locality === 'local' ? { local: id, foreign: f } : { local: f, foreign: id });
+        state.relationships[relationshipKey] = [...withoutExisting, ...toAdd];
+    }
+    function replaceRelationship({ type, id, foreignId, relationship: relationshipName }) {
+        const symmetric = schema_functions_1.isSymmetricRelationship(schema, type, relationshipName);
+        const { name: relationshipKey, locality } = schema_functions_1.canonicalRelationship(schema, type, relationshipName);
+        const filt = symmetric
+            ? arrow => arrow.local !== id && arrow.foreign !== id
+            : arrow => arrow[locality] !== id;
+        const withoutExisting = state.relationships[relationshipKey].filter(filt);
+        const toAdd = (Array.isArray(foreignId) ? foreignId : [foreignId]).map(f => locality === 'local' ? { local: id, foreign: f } : { local: f, foreign: id });
+        state.relationships[relationshipKey] = [...withoutExisting, ...toAdd];
+    }
+    function deleteRelationship() { }
+    // Helpers
     function getOne(query) {
         const { type, id } = query;
         const root = state.objects[type][id];
+        if (!root) {
+            return null;
+        }
         const relationships = utils_1.mapObj(query.relationships || {}, (options, relationshipName) => expandRelationship(query, relationshipName, options));
         return {
             id,

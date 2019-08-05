@@ -9,8 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const utils_1 = require("./lib/utils");
-const hydra_utils_1 = require("./lib/hydra-utils");
-function hydra(requestHandlers, querier, responders, schema) {
+function hydra({ requestHandlers, querier, responders, schema }) {
     return (req, res) => __awaiter(this, void 0, void 0, function* () {
         try {
             const responder = selectResponder(responders, req.headers.accept || '');
@@ -22,8 +21,7 @@ function hydra(requestHandlers, querier, responders, schema) {
             if (!requestHandler) {
                 return sendResponse({ code: 415, headers: {}, body: '' }, res);
             }
-            const action = yield requestHandler(req, schema);
-            const actionResult = yield hydra_utils_1.mapHydraError(action, a => querier(a, schema));
+            const actionResult = yield requestHandler({ request: req, schema, querier });
             const response = yield responder(action, actionResult);
             sendResponse(response, res);
         }

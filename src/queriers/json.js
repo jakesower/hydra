@@ -22,21 +22,28 @@ export function JsonQuerier(schema, baseState) {
     relationships: assignChildren([baseRelationships, baseState.relationships || {}]),
   };
 
-  return function(action) {
-    if ('get' in action) {
-      return Promise.resolve({ get: get(action.get) });
-    }
-
-    if ('merge' in action) {
-      return Promise.resolve({ merge: merge(action.merge) });
-    }
-
-    if ('delete' in action) {
-      return Promise.resolve({ merge: delete_(action.delete) });
-    }
-
-    throw 'boom';
+  const dispatchMap = {
+    get,
+    merge,
+    delete: delete_,
+    appendRelationships,
+    replaceRelationship: args => replaceRelationships({ ...args, foreignIds: [args.foreignId] }),
+    replaceRelationships,
+    deleteRelationship,
+    deleteRelationships,
   };
+
+  return function(action) {
+    const actionKey = Object.keys(dispatchMap).find(k => k in action);
+
+    if (!actionKey) {
+      return Promise.reject('unrecognized action!');
+    }
+
+    return Promise.resolve(dispatchMap[actionKey](action[actionKey]));
+  };
+
+  // Main actions
 
   function get(query) {
     return 'id' in query ? getOne(query) : getMany(query);
@@ -89,6 +96,81 @@ export function JsonQuerier(schema, baseState) {
       state.relationships[relationshipKey] = state.relationships[relationshipKey].filter(filt);
     });
   }
+
+  function appendRelationships({ type, id, foreignIds, relationship: relationshipName }) {
+    const symmetric = isSymmetricRelationship(schema, type, relationshipName);
+    const { name: relationshipKey, locality } = canonicalRelationship(
+      schema,
+      type,
+      relationshipName
+    );
+    const inverseLocality = locality === 'foreign' ? 'local' : 'foreign';
+    const excluder = symmetric
+      ? arrow =>
+          (arrow.local === id && foreignIds.includes(arrow.foreign)) ||
+          (arrow.foreign === id && foreignIds.includes(arrow.local))
+      : arrow => arrow[locality] === id && foreignIds.includes(arrow[inverseLocality]);
+    const withoutDups = state.relationships[relationshipKey].filter(v => !excluder(v));
+    const toAdd = foreignIds.map(f =>
+      locality === 'local' ? { local: id, foreign: f } : { local: f, foreign: id }
+    );
+
+    state.relationships[relationshipKey] = [...withoutDups, ...toAdd];
+  }
+
+  function replaceRelationships({ type, id, foreignIds, relationship: relationshipName }) {
+    const symmetric = isSymmetricRelationship(schema, type, relationshipName);
+    const { name: relationshipKey, locality } = canonicalRelationship(
+      schema,
+      type,
+      relationshipName
+    );
+    const filt = symmetric
+      ? arrow => arrow.local !== id && arrow.foreign !== id
+      : arrow => arrow[locality] !== id;
+    const withoutExisting = state.relationships[relationshipKey].filter(filt);
+    const toAdd = foreignIds.map(f =>
+      locality === 'local' ? { local: id, foreign: f } : { local: f, foreign: id }
+    );
+
+    state.relationships[relationshipKey] = [...withoutExisting, ...toAdd];
+  }
+
+  function deleteRelationship({ type, id, relationship: relationshipName }) {
+    const symmetric = isSymmetricRelationship(schema, type, relationshipName);
+    const { name: relationshipKey, locality } = canonicalRelationship(
+      schema,
+      type,
+      relationshipName
+    );
+
+    const filt = symmetric
+      ? arrow => arrow.local !== id && arrow.foreign !== id
+      : arrow => arrow[locality] !== id;
+
+    const withoutTargeted = state.relationships[relationshipKey].filter(filt);
+
+    state.relationships[relationshipKey] = withoutTargeted;
+  }
+
+  function deleteRelationships({ type, id, foreignIds, relationship: relationshipName }) {
+    const symmetric = isSymmetricRelationship(schema, type, relationshipName);
+    const { name: relationshipKey, locality } = canonicalRelationship(
+      schema,
+      type,
+      relationshipName
+    );
+    const inverseLocality = locality === 'foreign' ? 'local' : 'foreign';
+    const excluder = symmetric
+      ? (arrow.local === id && foreignIds.includes(arrow.foreign)) ||
+        (arrow.foreign === id && foreignIds.includes(arrow.local))
+      : arrow => arrow[locality] === id && foreignIds.includes(arrow[inverseLocality]);
+    const withoutTargeted = state.relationships[relationshipKey].filter(v => !excluder(v));
+
+    state.relationships[relationshipKey] = withoutTargeted;
+  }
+
+  // Helpers
 
   function getOne(query) {
     const { type, id } = query;

@@ -16,16 +16,16 @@ const db = new Database('wc2019.db');
 const fullSchema = expandSchema(schema);
 const port = 20191;
 const server = http.createServer(
-  hydra(
-    { '*/*': JsonApiRequestHandler },
-    JsonQuerier(fullSchema, { objects: { games: { game1: { name: 'Game 1' } } } }),
-    {
+  hydra({
+    requestHandlers: { '*/*': JsonApiRequestHandler },
+    querier: JsonQuerier(fullSchema, { objects: { games: { game1: { name: 'Game 1' } } } }),
+    responders: {
       // 'application/vnd.api+json': JsonApiResponder,
       // 'text/html': HtmlResponder,
       '*/*': JsonApiResponder(fullSchema),
     },
-    fullSchema
-  )
+    schema: fullSchema,
+  })
 );
 
 server.listen(port);

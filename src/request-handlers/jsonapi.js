@@ -1,9 +1,7 @@
-import { IncomingMessage } from 'http';
 import { parse as parseUrl } from 'url';
-import { HydraError, Schema, Action, Query } from '../types';
 import { chainPipeThru } from '../lib/utils';
 import { errToHydraError } from '../lib/hydra-utils';
-import { Either, Ok, Err } from '../lib/either';
+import { Ok, Err } from '../lib/either';
 import { default as uuidV4 } from 'uuid/v4';
 
 /*
@@ -24,22 +22,13 @@ import { default as uuidV4 } from 'uuid/v4';
   - IDs created on client side
 */
 
-interface EitherHydraError {
-  messages: string[];
-  code?: string;
-  meta?: any;
-}
-
-export function JsonApiRequestHandler(
-  request: IncomingMessage,
-  schema: Schema
-): Promise<HydraError | Action> {
+export function JsonApiRequestHandler({ request, schema, querier }) {
   const paramHandlers = {
     include: includeHandler,
   };
 
   // these variables are useful across the entire request
-  const { pathname } = parseUrl(request.url as string);
+  const { pathname } = parseUrl(request.url);
   const rootType = (pathname || '').split('/')[1];
 
   const result = chainPipeThru(Ok(request), [
@@ -53,7 +42,7 @@ export function JsonApiRequestHandler(
 
   // Functions
 
-  function validateRequest(request: IncomingMessage): Either<EitherHydraError, IncomingMessage> {
+  function validateRequest(request) {
     const chunks = (pathname || '').split('/').splice(1);
 
     // Group resource requests
@@ -66,9 +55,9 @@ export function JsonApiRequestHandler(
     return Err({ messages: ['not implemented'] });
   }
 
-  function validateParams(request: IncomingMessage): Either<EitherHydraError, IncomingMessage> {
+  function validateParams(request) {
     const supportedParams = Object.keys(paramHandlers);
-    const { query } = parseUrl(request.url as string, true);
+    const { query } = parseUrl(request.url, true);
     const bad = Object.keys(query).filter(k => !supportedParams.includes(k) && /^[a-z]+$/.test(k));
 
     return bad.length === 0
@@ -76,16 +65,30 @@ export function JsonApiRequestHandler(
       : Err({ messages: bad.map(k => `${k} is not a supported parameter`) });
   }
 
-  function validateSchema(request: IncomingMessage): Either<EitherHydraError, IncomingMessage> {
+  function validateSchema(request) {
     return Ok(request);
   }
 
-  function buildQuery(request: IncomingMessage): Either<HydraError, Action> {
-    const { pathname, query } = parseUrl(request.url as string, true);
+  /**
+   * GET requests
+   *
+   * Per spec, three types must be supported:
+   * GET /articles
+   * GET /articles/1
+   * GET /articles/1/author
+   *
+   * The first two cases are straightforward in light of the query format, however the third form requires
+   *
+   * BIG QUESTION -- Should request-handlers receive a querier as an argument? It allows any kind of
+   * queries to be understood and handled, but is much more coupled, except from a DI POV.
+   *
+   */
+  function buildQuery(request) {
+    const { pathname, query } = parseUrl(request.url, true);
     const chunks = (pathname || '').split('/').splice(1);
     const resourceId = chunks[1];
 
-    const baseGraph: Query = {
+    const baseGraph = {
       type: rootType,
       relationships: {},
       ...(resourceId ? { id: resourceId } : {}),
@@ -104,7 +107,7 @@ export function JsonApiRequestHandler(
     ]);
   }
 
-  function includeHandler(initGraph: Query, paramValue: string): Either<HydraError, Query> {
+  function includeHandler(initGraph, paramValue) {
     const relationshipPaths = paramValue.split(',').map(p => p.split('.'));
 
     const walkToRelated = (resourceType, relationshipPath) => {
@@ -132,7 +135,7 @@ export function JsonApiRequestHandler(
     return Ok({ ...initGraph, relationships });
   }
 
-  function buildCreateQuery(request: IncomingMessage): Either<EitherHydraError, Action> {
+  function buildCreateQuery(request) {
     // TODO: walk the graph and error on attributes and/or nested relationships
     const uuid = uuidV4();
 
