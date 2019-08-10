@@ -29,6 +29,7 @@
     "typescript": "^3.4.5"
   },
   "dependencies": {
+    "ajv": "^6.10.2",
     "ejs": "^2.6.1",
     "sqlite3": "^4.0.8",
     "uuid": "^3.3.2"

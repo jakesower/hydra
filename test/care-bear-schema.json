@@ -31,7 +31,7 @@
       "attributes": {
         "name": { "type": "string" },
         "location": { "type": "string" },
-        "caring_meter": { "type": "float" }
+        "caring_meter": { "type": "number" }
       },
       "relationships": {
         "bears": {

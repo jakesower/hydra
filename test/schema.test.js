@@ -1,6 +1,39 @@
 import test from 'ava';
 import schema from './care-bear-schema.json';
-import { expandSchema } from '../src/lib/schema-functions';
+import { expandSchema, validateSchema, schemaErrors } from '../src/lib/schema-functions';
+
+test('fails to validate an empty schema', t => {
+  t.throws(() => expandSchema({}));
+});
+
+test('fails to validate a schema with a bad resource name', t => {
+  t.throws(() =>
+    expandSchema({
+      resources: {
+        'bad-name': {},
+      },
+    })
+  );
+});
+
+test('fails to validate a schema with a relationship missing a valid inverse', t => {
+  t.throws(() =>
+    expandSchema({
+      resources: {
+        bad: {
+          attributes: [{ thing: { type: 'string' } }],
+          relationships: {
+            noninvertable: {
+              type: 'good',
+              cardinality: 'many',
+              inverse: 'missing',
+            },
+          },
+        },
+      },
+    })
+  );
+});
 
 test('expands schema', async t => {
   t.deepEqual(expandSchema(schema), {
@@ -41,7 +74,7 @@ test('expands schema', async t => {
         attributes: {
           name: { type: 'string', key: 'name' },
           location: { type: 'string', key: 'location' },
-          caring_meter: { type: 'float', key: 'caring_meter' },
+          caring_meter: { type: 'number', key: 'caring_meter' },
         },
         relationships: {
           bears: {

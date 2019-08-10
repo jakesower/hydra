@@ -25,15 +25,18 @@ const storeState = {
         fur_color: 'turquoise',
       },
       5: {
-        name: 'Love-a-Lot Bear',
+        name: 'Wonderheart Bear',
         gender: 'female',
-        belly_badge: 'two hearts',
+        belly_badge: 'three hearts',
         fur_color: 'pink',
       },
     },
     homes: {
       1: { name: 'Care-a-Lot', location: 'Kingdom of Caring' },
       2: { name: 'Forest of Feelings', location: 'Kingdom of Caring' },
+    },
+    powers: {
+      careBearStare: { name: 'Care Bear Stare', description: 'Defeats enemies and heal friends' },
     },
   },
   relationships: {
@@ -43,6 +46,11 @@ const storeState = {
       { local: '3', foreign: '1' },
     ],
     'bears/best_friend': [{ local: '2', foreign: '3' }],
+    'bears/powers': [
+      { local: '1', foreign: 'careBearStare' },
+      { local: '2', foreign: 'careBearStare' },
+      { local: '3', foreign: 'careBearStare' },
+    ],
   },
 };
 
@@ -184,7 +192,14 @@ test('fetches multiple relationships of various types', async t => {
           ],
         },
       },
-      powers: [],
+      powers: [
+        {
+          type: 'powers',
+          id: 'careBearStare',
+          attributes: storeState.objects.powers.careBearStare,
+          relationships: {},
+        },
+      ],
     },
   });
 });
@@ -327,7 +342,7 @@ test('deletes objects', async t => {
   t.is(result.relationships.bears.length, 2);
 });
 
-test('replaces a to-one relationship', async t => {
+test('replaces a one-to-one relationship', async t => {
   await t.context.store({
     replaceRelationship: {
       type: 'bears',
@@ -358,7 +373,7 @@ test('replaces a to-one relationship', async t => {
   t.is(careALotResult.relationships.bears.length, 2);
 });
 
-test('replaces a to-many-relationship', async t => {
+test('replaces a one-to-many-relationship', async t => {
   await t.context.store({
     replaceRelationships: {
       type: 'homes',
@@ -378,7 +393,7 @@ test('replaces a to-many-relationship', async t => {
 
   t.is(bearResult.relationships.home, null);
 
-  const loveALotResult = await t.context.store({
+  const wonderheartResult = await t.context.store({
     get: {
       type: 'bears',
       id: '5',
@@ -386,7 +401,7 @@ test('replaces a to-many-relationship', async t => {
     },
   });
 
-  t.is(loveALotResult.relationships.home.attributes.name, 'Care-a-Lot');
+  t.is(wonderheartResult.relationships.home.attributes.name, 'Care-a-Lot');
 
   const careALotResult = await t.context.store({
     get: {
@@ -398,6 +413,9 @@ test('replaces a to-many-relationship', async t => {
 
   t.is(careALotResult.relationships.bears.length, 2);
 });
+
+// TODO: test about many-to-many relationships
+// TODO: symmetric relationship testing
 
 test('appends to a to-many relationship', async t => {
   await t.context.store({

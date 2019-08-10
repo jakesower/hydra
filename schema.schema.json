@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "A representation of a schema for use by hydra",
+  "type": "object",
+  "required": ["resources"],
+  "additionalProperties": false,
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "The schema's title"
+    },
+    "meta": {},
+    "resources": {
+      "type": "object",
+      "patternProperties": {
+        ".*": {
+          "type": "object",
+          "$ref": "#/definitions/resource"
+        }
+      },
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^([a-z])([A-Za-z0-9_]+)$" }
+    }
+  },
+  "definitions": {
+    "resource": {
+      "type": "object",
+      "properties": {
+        "attributes": {
+          "type": "object",
+          "$ref": "#/definitions/attributes"
+        },
+        "relationships": {
+          "type": "object",
+          "$ref": "#/definitions/relationships"
+        },
+        "meta": {}
+      },
+      "required": ["attributes", "relationships"]
+    },
+    "attributes": {
+      "type": "object",
+      "patternProperties": {
+        "^([a-z])([A-Za-z0-9_]+)$": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "enum": ["string", "integer", "date", "datetime", "number", "uuid", "text"]
+            },
+            "meta": {}
+          },
+          "required": ["type"]
+        }
+      },
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^([a-z])([A-Za-z0-9_]+)$" }
+    },
+    "relationships": {
+      "type": "object",
+      "patternProperties": {
+        "^([a-z])([A-Za-z0-9_]+)$": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string" },
+            "cardinality": { "enum": ["one", "many"] },
+            "inverse": { "type": "string" }
+          },
+          "required": ["type", "cardinality", "inverse"]
+        }
+      },
+      "propertyNames": { "pattern": "^([a-z])([A-Za-z0-9_]+)$" }
+    }
+  }
+}

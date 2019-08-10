@@ -1,8 +1,35 @@
+import ajv from 'ajv';
 import { Schema, SchemaAttribute } from '../types';
-import { overPath, mapObj, inlineKey, pluckKeys, uniq } from './utils';
+import { overPath, mapObj, inlineKey, pluckKeys, uniq, reduceObj } from './utils';
+import schemaSchema from '../../schema.schema.json';
+
+function schemaErrors(rawSchema) {
+  const validate = new ajv().compile(schemaSchema);
+
+  if (validate(rawSchema)) {
+    return reduceObj(rawSchema.resources, <string[]>[], (errs, resource: any, resourceName) => [
+      ...errs,
+      ...reduceObj(resource.relationships, <string[]>[], (rErrs, rel: any, relName) => [
+        ...rErrs,
+        ...(rel.inverse in rawSchema.resources[rel.type].relationships
+          ? []
+          : [
+              `the "${relName}" relationship on the "${resourceName}" resource does not have a valid inverse`,
+            ]),
+      ]),
+    ]);
+  }
+
+  return JSON.stringify(validate.errors);
+}
 
 // inlines keys and otherwise makes a schema easier to work with
 export function expandSchema(rawSchema): Schema {
+  const errors = schemaErrors(rawSchema);
+  if (errors.length > 0) {
+    throw new Error(JSON.stringify(errors, null, 2));
+  }
+
   return overPath(rawSchema, ['resources'], resources =>
     inlineKey(
       mapObj<any, any>(resources, r => ({
