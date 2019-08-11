@@ -14,7 +14,6 @@
       "type": "object",
       "patternProperties": {
         ".*": {
-          "type": "object",
           "$ref": "#/definitions/resource"
         }
       },
@@ -27,16 +26,15 @@
       "type": "object",
       "properties": {
         "attributes": {
-          "type": "object",
           "$ref": "#/definitions/attributes"
         },
         "relationships": {
-          "type": "object",
           "$ref": "#/definitions/relationships"
         },
         "meta": {}
       },
-      "required": ["attributes", "relationships"]
+      "required": ["attributes", "relationships"],
+      "additionalProperties": false
     },
     "attributes": {
       "type": "object",
@@ -53,6 +51,7 @@
         }
       },
       "minProperties": 1,
+      "additionalProperties": false,
       "propertyNames": { "pattern": "^([a-z])([A-Za-z0-9_]+)$" }
     },
     "relationships": {
@@ -68,6 +67,7 @@
           "required": ["type", "cardinality", "inverse"]
         }
       },
+      "additionalProperties": false,
       "propertyNames": { "pattern": "^([a-z])([A-Za-z0-9_]+)$" }
     }
   }

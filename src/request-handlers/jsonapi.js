@@ -82,6 +82,9 @@ export function JsonApiRequestHandler({ request, schema, querier }) {
    * BIG QUESTION -- Should request-handlers receive a querier as an argument? It allows any kind of
    * queries to be understood and handled, but is much more coupled, except from a DI POV.
    *
+   * ANSWER - Yes. It's impossible to implement request handlers otherwise. Queriers appear to be the
+   * most interesting part of the project.
+   *
    */
   function buildQuery(request) {
     const { pathname, query } = parseUrl(request.url, true);

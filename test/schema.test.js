@@ -1,6 +1,6 @@
 import test from 'ava';
 import schema from './care-bear-schema.json';
-import { expandSchema, validateSchema, schemaErrors } from '../src/lib/schema-functions';
+import { expandSchema } from '../src/lib/schema-functions';
 
 test('fails to validate an empty schema', t => {
   t.throws(() => expandSchema({}));
