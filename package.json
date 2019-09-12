@@ -25,8 +25,7 @@
     "concurrently": "^4.1.0",
     "mkdirp": "^0.5.1",
     "node-mocks-http": "^1.7.5",
-    "ts-node": "^8.1.0",
-    "typescript": "^3.4.5"
+    "ts-node": "^8.1.0"
   },
   "dependencies": {
     "ajv": "^6.10.2",

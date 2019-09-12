@@ -29,7 +29,7 @@ export function chainPipeThru(val: any, fns: ((x: any) => any)[]) {
   return fns.reduce((acc, fn) => acc.chain(fn), val);
 }
 
-export function fgo(generator: () => IterableIterator<any>) {
+export function fgo(generator) {
   const recur = ({ value, done }, gen) => {
     if (done) {
       return value;
@@ -116,6 +116,17 @@ export function maxStable<T>(fn: (a: T) => Ord, xs: T[]): T {
   return out;
 }
 
+export function mapResult(resultOrResults, fn) {
+  if (Array.isArray(resultOrResults)) {
+    return resultOrResults.map(mapResult);
+  }
+
+  const next = fn(resultOrResults);
+  const relationships = mapObj(resultOrResults.relationships, mapResult);
+
+  return { ...next, relationships };
+}
+
 export function mergeAll<T>(items: { [k in string]: T }[]): { [k in string]: T } {
   const init: { [k in string]: T } = {};
   return items.reduce((merged, arg) => ({ ...merged, ...arg }), init);
@@ -167,6 +178,18 @@ export function omitKeys<T>(obj: { [k: string]: T }, nix: string[]): { [k: strin
 
 export function pipe(fns: ((x: any) => any)[]): (x: any) => any {
   return fns.reduce((acc, fn) => val => fn(acc(val)), x => x);
+}
+
+export async function pipeMw(init, mws) {
+  if (mws.length === 0) {
+    return init;
+  }
+
+  const fn = mws.reverse().reduce((onion, mw) => {
+    return async req => await mw(req, onion);
+  });
+
+  return fn(init);
 }
 
 export function pipeThru(val: any, fns: ((x: any) => any)[]): any {

@@ -1,5 +1,4 @@
 import { xprod, mergeAll } from './lib/utils';
-import { mapHydraError } from './lib/hydra-utils';
 
 export function hydra({ requestHandlers, querier, responders, schema }) {
   return async (req, res) => {
@@ -21,7 +20,7 @@ export function hydra({ requestHandlers, querier, responders, schema }) {
       }
 
       const actionResult = await requestHandler({ request: req, schema, querier });
-      const response = await responder(action, actionResult);
+      const response = await responder(actionResult);
 
       sendResponse(response, res);
     } catch (err) {

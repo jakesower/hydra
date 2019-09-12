@@ -36,7 +36,7 @@ const storeState = {
       2: { name: 'Forest of Feelings', location: 'Kingdom of Caring' },
     },
     powers: {
-      careBearStare: { name: 'Care Bear Stare', description: 'Defeats enemies and heal friends' },
+      careBearStare: { name: 'Care Bear Stare', description: 'Defeats enemies and heals friends' },
     },
   },
   relationships: {

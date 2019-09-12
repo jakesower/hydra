@@ -12,13 +12,23 @@ import schema from './wc2019-schema.json';
 
 const db = new Database('wc2019.db');
 
+const testBase = {
+  objects: {
+    games: { game1: { name: 'Game 1' } },
+    players: { fuzz: { name: 'Fuzz', bracket: 'yeah' }, future: { name: 'Future', bracket: 'no' } },
+  },
+  relationships: {
+    'games/players': [{ local: 'game1', foreign: 'fuzz' }, { local: 'game1', foreign: 'future' }],
+  },
+};
+
 // const port = config.port;
 const fullSchema = expandSchema(schema);
 const port = 20191;
 const server = http.createServer(
   hydra({
     requestHandlers: { '*/*': JsonApiRequestHandler },
-    querier: JsonQuerier(fullSchema, { objects: { games: { game1: { name: 'Game 1' } } } }),
+    querier: JsonQuerier(fullSchema, testBase),
     responders: {
       // 'application/vnd.api+json': JsonApiResponder,
       // 'text/html': HtmlResponder,

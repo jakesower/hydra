@@ -6,13 +6,7 @@
         "name": {
           "type": "string"
         },
-        "group_bracket": {
-          "type": "text"
-        },
-        "goal_bracket": {
-          "type": "text"
-        },
-        "knockout_bracket": {
+        "bracket": {
           "type": "text"
         }
       },

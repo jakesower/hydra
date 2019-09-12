@@ -1,14 +1,15 @@
 import { pluckKeys, omitKeys, mapObj, unnest } from '../lib/utils';
 
 export function JsonApiResponder(schema) {
-  return function(action, actionResult) {
-    const details =
-      'hydraError' in actionResult
-        ? handleError(actionResult)
-        : 'get' in actionResult
-        ? handleGet(actionResult.get)
-        : { code: 500, payload: { meta: ';(' } };
+  return function({ action, rootType, result }) {
+    const dispatchMap = {
+      get,
+      error: handleError,
+    };
 
+    console.log({ action, dispatchMap, rootType, result });
+
+    const details = dispatchMap[action](result);
     const meta = {
       description: 'why hello there',
     };
@@ -26,6 +27,8 @@ export function JsonApiResponder(schema) {
       }),
     });
 
+    // Functions
+
     function handleError(errors) {
       return {
         code: 400,
@@ -35,7 +38,7 @@ export function JsonApiResponder(schema) {
       };
     }
 
-    function handleGet(resultGraph) {
+    function get(resultGraph) {
       function compressGraph(map, node) {
         const { id, type, attributes } = node;
         const def = schema.resources[type];
@@ -75,7 +78,6 @@ export function JsonApiResponder(schema) {
         : compressGraph({}, resultGraph);
 
       const roots = Array.isArray(resultGraph) ? resultGraph : [resultGraph];
-      const rootType = action.get.type;
       const data = Object.values(pluckKeys(allData[rootType] || {}, roots.map(r => r.id)));
       const allIncluded = {
         ...allData,

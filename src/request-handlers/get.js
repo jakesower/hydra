@@ -1,0 +1,188 @@
+import { pipeThru, mapResult, pipeMw } from '../lib/utils';
+
+/*
+  possible params:
+
+  - fields (dogmatic)
+  - sort (dogmatic)
+  - page (dogmatic)
+  - filter (loose)
+
+  Three resource forms:
+
+  - /things
+  - /things/1
+  - /things/1/widget
+
+  One relationship form:
+
+  - /things/1/relationships/widget
+
+  THESE REPRESENT A COMPLETE SET OF LEGIT URL PATTERNS
+
+  Concerns (for resource forms):
+
+  - A proper root for the result tree must be selected
+  - All query params must be taken into consideration
+  - Queries of the third form must be properly handled, specifically:
+    - The root resource must be properly returned
+    - If the origin resource doesn't exist, an error must be returned
+    - Queries must be minimized
+
+  TERMINOLOGY
+
+  - The root requested resource is referred to as the "rootResource"
+  - If requesting a resource related to the rootResource, it's called the "relatedResource"
+
+  - So note references to "root" and "related"
+*/
+
+export async function get({ requestQuery, querier, pathChunks, schema }) {
+  const [rootType, resourceId, relOrLink, rel] = pathChunks;
+
+  switch (pathChunks.length) {
+    case 1:
+    case 2:
+      return basic(rootType, resourceId);
+    case 3:
+      return related(rootType, resourceId, relOrLink);
+    case 4:
+      return relationship(rootType, resourceId, rel);
+    default:
+      return { error: 'Bad URL format' };
+  }
+
+  // helpers
+
+  async function basic(rootType, resourceId) {
+    const baseGraph = {
+      type: rootType,
+      relationships: {},
+      ...(resourceId ? { id: resourceId } : {}),
+    };
+
+    const stack = [
+      // middlewares pertaining to query params
+      ...paramStack({ schema, rootType, requestQuery }),
+      // the query runner itself
+      query => querier({ get: query }),
+    ];
+
+    const result = await pipeMw(baseGraph, stack);
+
+    return { get: { rootType, result } };
+  }
+
+  async function related(rootType, rootResourceId, relationshipName) {
+    const relationshipDefinition = schema.resources[rootType].relationships[relationshipName];
+
+    const relatedGraph = {
+      type: relationshipDefinition.type,
+      cardinality: relationshipDefinition.cardinality,
+      constraints: [],
+      relationships: {},
+    };
+
+    const wrapMw = async (relatedQuery, _next) => {
+      const query = {
+        type: rootType,
+        relationships: { [relationshipName]: relatedQuery },
+        id: rootResourceId,
+      };
+
+      const result = await querier({ get: query });
+
+      if (result === null) {
+        return { error: { code: 404, messages: ['root resource does not exist'] } };
+      }
+
+      return {
+        get: {
+          rootType: relationshipDefinition.type,
+          result: result.relationships[relationshipName],
+        },
+      };
+    };
+
+    const paramMws = paramStack({ schema, rootType: relationshipDefinition.type, requestQuery });
+
+    return pipeMw(relatedGraph, [...paramMws, wrapMw]);
+  }
+
+  async function relationship(rootType, rootResourceId, relationshipName) {
+    const query = {
+      type: rootType,
+      relationships: { [relationshipName]: {} },
+      id: rootResourceId,
+    };
+
+    const result = await querier({ get: query });
+
+    return {
+      relationship: { rootType, result },
+    };
+  }
+}
+
+const handlerMiddlewares = {
+  include: includeHandler,
+};
+
+// this function figures out which query parameters have been passed as part of
+// the request and creates appropriate middleware for those that exist.
+// the goal is that middleware can be added in the handlerMiddlewares object
+// and be properly applied
+function paramStack({ requestQuery, schema, rootType }) {
+  return Object.keys(requestQuery)
+    .filter(k => Object.keys(handlerMiddlewares).includes(k))
+    .map(k => {
+      const handler = handlerMiddlewares[k];
+      const paramValue = requestQuery[k];
+
+      return handler(schema, rootType, paramValue);
+    });
+}
+
+function includeHandler(schema, rootType, paramValue) {
+  return async function(graph, next) {
+    const relationshipPaths = paramValue.split(',').map(p => p.split('.'));
+
+    const walkToRelated = (resourceType, relationshipPath) => {
+      const [relationship, ...rest] = relationshipPath;
+      const relData = schema.resources[resourceType].relationships[relationship];
+
+      return {
+        [relData.key]: {
+          type: relData.type,
+          cardinality: relData.cardinality,
+          constraints: [],
+          relationships: rest.length === 0 ? {} : walkToRelated(relData.type, rest),
+        },
+      };
+    };
+
+    const relationships = relationshipPaths.reduce(
+      (rels, path) => ({
+        ...rels,
+        ...walkToRelated(rootType, path),
+      }),
+      {}
+    );
+
+    return await next({ ...graph, relationships });
+  };
+}
+
+// TODO: A hint passing mechanism for perf would be nice
+function fieldsHandler(schema, rootType) {
+  const id = x => x;
+
+  return async function({ graph, paramValue }, next) {
+    const result = await next(graph);
+
+    return mapResult(result, resource => ({
+      ...resource,
+      attributes: (typeFilter[result.type] || id)(resource),
+    }));
+  };
+}
