@@ -118,11 +118,11 @@ export function maxStable<T>(fn: (a: T) => Ord, xs: T[]): T {
 
 export function mapResult(resultOrResults, fn) {
   if (Array.isArray(resultOrResults)) {
-    return resultOrResults.map(mapResult);
+    return resultOrResults.map(r => mapResult(r, fn));
   }
 
   const next = fn(resultOrResults);
-  const relationships = mapObj(resultOrResults.relationships, mapResult);
+  const relationships = mapObj(resultOrResults.relationships, r => mapResult(r, fn));
 
   return { ...next, relationships };
 }
@@ -173,6 +173,36 @@ export function omitKeys<T>(obj: { [k: string]: T }, nix: string[]): { [k: strin
       out[key] = obj[key];
     }
   }
+  return out;
+}
+
+export function parseQueryParams(rawParams) {
+  let out = {};
+
+  const indexRegex = /^([^[]+)\[([^\]]+)\]$/;
+  Object.keys(rawParams).forEach(k => {
+    const res = indexRegex.exec(k);
+
+    if (res) {
+      const [top, inner] = [res[1], res[2]];
+      out[top] = out[top] || {};
+      out[top][inner] = rawParams[k];
+    } else {
+      out[k] = rawParams[k];
+    }
+  });
+
+  return out;
+}
+
+export function pick<T>(obj: { [k: string]: T }, keys: string[]): { [k: string]: T } {
+  const l = keys.length;
+  let out = {};
+
+  for (let i = 0; i < l; i += 1) {
+    out[keys[i]] = obj[keys[i]];
+  }
+
   return out;
 }
 

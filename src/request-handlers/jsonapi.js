@@ -1,5 +1,5 @@
 import { parse as parseUrl } from 'url';
-import { chainPipeThru } from '../lib/utils';
+import { chainPipeThru, parseQueryParams } from '../lib/utils';
 import { Ok, Err } from '../lib/either';
 import { get } from './get';
 
@@ -25,8 +25,7 @@ export async function JsonApiRequestHandler({ request, schema, querier }) {
   // these variables are useful across the entire request
   const { pathname, query } = parseUrl(request.url, true);
   const pathChunks = (pathname || '').split('/').splice(1);
-
-  const rootType = (pathname || '').split('/')[1];
+  const requestQuery = parseQueryParams(query);
 
   const result = chainPipeThru(Ok(request), [validateRequest, validateParams, validateSchema]);
 
@@ -34,7 +33,7 @@ export async function JsonApiRequestHandler({ request, schema, querier }) {
     return { error: result.getErrValue() };
   }
 
-  return get({ requestQuery: query, querier, pathChunks, schema });
+  return get({ requestQuery, querier, pathChunks, schema });
 
   // Functions
 
@@ -52,10 +51,11 @@ export async function JsonApiRequestHandler({ request, schema, querier }) {
   }
 
   function validateParams(request) {
-    const supportedParams = ['include'];
+    const supportedParams = ['include', 'fields'];
     const { query } = parseUrl(request.url, true);
+    const requestQuery = parseQueryParams(query);
     const testKey = k => /^[a-z]+$/.test(k.split(/[^-a-zA-Z_]/)[0]);
-    const bad = Object.keys(query).filter(k => !supportedParams.includes(k) && testKey(k));
+    const bad = Object.keys(requestQuery).filter(k => !supportedParams.includes(k) && testKey(k));
 
     return bad.length === 0
       ? Ok(request)

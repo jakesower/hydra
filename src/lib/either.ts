@@ -58,7 +58,7 @@ class EitherOk<E, O> implements Eith<E, O> {
 class EitherErr<E, O> implements Eith<E, O> {
   constructor(private value: E) {}
 
-  recoverWith<T>(defaultValue: T): T {
+  recoverWith<T>(defaultValue: T): T | O {
     return defaultValue;
   }
 
@@ -139,9 +139,7 @@ export function sequenceObj<T, U>(eithers: {
   return Ok(zipObj(keys, out));
 }
 
-export function sequencePromise<E, O>(
-  eitherPromise: Either<E, Promise<O>>
-): Promise<Either<E, O>> {
+export function sequencePromise<E, O>(eitherPromise: Either<E, Promise<O>>): Promise<Either<E, O>> {
   if (eitherPromise.isErr()) {
     return (Promise.resolve(eitherPromise) as unknown) as Promise<Either<E, O>>;
   }

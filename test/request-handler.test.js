@@ -252,7 +252,7 @@ test('jsonapi request with an included param on a related resource', async t => 
   });
 });
 
-test.skip('sparse fieldsets', async t => {
+test('sparse fieldsets', async t => {
   const r = createRequest({
     method: 'GET',
     url: '/bears/3?fields[bears]=name,fur_color',
@@ -268,6 +268,34 @@ test.skip('sparse fieldsets', async t => {
         id: '3',
         type: 'bears',
         relationships: {},
+      },
+    },
+  });
+});
+
+test('sparse fieldsets in related resources', async t => {
+  const r = createRequest({
+    method: 'GET',
+    url: '/bears/3?fields[bears]=name,fur_color&fields[homes]=location&include=home',
+  });
+
+  const res = await t.context.handler(r);
+
+  t.deepEqual(res, {
+    get: {
+      rootType: 'bears',
+      result: {
+        attributes: { name: 'Wish Bear', fur_color: 'turquoise' },
+        id: '3',
+        type: 'bears',
+        relationships: {
+          home: {
+            attributes: { location: 'Kingdom of Caring' },
+            id: '1',
+            relationships: {},
+            type: 'homes',
+          },
+        },
       },
     },
   });

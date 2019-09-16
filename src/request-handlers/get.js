@@ -1,4 +1,5 @@
-import { pipeThru, mapResult, pipeMw } from '../lib/utils';
+import { pipeThru, mapResult, pipeMw, pick } from '../lib/utils';
+import { resourceNames } from '../lib/schema-functions';
 
 /*
   possible params:
@@ -124,8 +125,10 @@ export async function get({ requestQuery, querier, pathChunks, schema }) {
   }
 }
 
+// note that this is order sensitive
 const handlerMiddlewares = {
   include: includeHandler,
+  fields: fieldsHandler,
 };
 
 // this function figures out which query parameters have been passed as part of
@@ -139,11 +142,11 @@ function paramStack({ requestQuery, schema, rootType }) {
       const handler = handlerMiddlewares[k];
       const paramValue = requestQuery[k];
 
-      return handler(schema, rootType, paramValue);
+      return handler({ schema, rootType, paramValue });
     });
 }
 
-function includeHandler(schema, rootType, paramValue) {
+function includeHandler({ schema, rootType, paramValue }) {
   return async function(graph, next) {
     const relationshipPaths = paramValue.split(',').map(p => p.split('.'));
 
@@ -174,15 +177,18 @@ function includeHandler(schema, rootType, paramValue) {
 }
 
 // TODO: A hint passing mechanism for perf would be nice
-function fieldsHandler(schema, rootType) {
+function fieldsHandler({ paramValue }) {
   const id = x => x;
+  const typeFilter = Object.keys(paramValue).reduce((filters, name) => {
+    return { ...filters, [name]: attrs => pick(attrs, paramValue[name].split(',')) };
+  }, {});
 
-  return async function({ graph, paramValue }, next) {
+  return async function(graph, next) {
     const result = await next(graph);
 
     return mapResult(result, resource => ({
       ...resource,
-      attributes: (typeFilter[result.type] || id)(resource),
+      attributes: (typeFilter[resource.type] || id)(resource.attributes),
     }));
   };
 }
