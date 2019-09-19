@@ -300,3 +300,25 @@ test('sparse fieldsets in related resources', async t => {
     },
   });
 });
+
+test('sparse fieldsets with a null request', async t => {
+  const r = createRequest({
+    method: 'GET',
+    url: '/bears/300?fields[bears]=name,fur_color&fields[homes]=location&include=home',
+  });
+
+  const res = await t.context.handler(r);
+
+  t.deepEqual(res, { get: { result: null, rootType: 'bears' } });
+});
+
+test('sparse fieldsets with a missing related request', async t => {
+  const r = createRequest({
+    method: 'GET',
+    url: '/homes/300/bears?fields[bears]=name,fur_color&fields[homes]=location&include=home',
+  });
+
+  const res = await t.context.handler(r);
+
+  t.deepEqual(res.error.code, 404);
+});

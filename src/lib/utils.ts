@@ -117,6 +117,10 @@ export function maxStable<T>(fn: (a: T) => Ord, xs: T[]): T {
 }
 
 export function mapResult(resultOrResults, fn) {
+  if (resultOrResults === null) {
+    return null;
+  }
+
   if (Array.isArray(resultOrResults)) {
     return resultOrResults.map(r => mapResult(r, fn));
   }

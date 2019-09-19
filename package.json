@@ -13,7 +13,8 @@
     "watch": "concurrently \"npm run watch-js\" \"npm run watch-sass\"",
     "start": "ts-node ./server.js",
     "test": "ava",
-    "test-watch": "ava -w"
+    "test:watch:verbose": "ava -w --verbose",
+    "test:watch": "ava -w"
   },
   "devDependencies": {
     "@types/chai": "^4.1.7",

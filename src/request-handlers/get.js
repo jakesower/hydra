@@ -1,5 +1,5 @@
 import { pipeThru, mapResult, pipeMw, pick } from '../lib/utils';
-import { resourceNames } from '../lib/schema-functions';
+import { finalizablePipe } from '../lib/finalizable-pipe';
 
 /*
   possible params:
@@ -66,10 +66,12 @@ export async function get({ requestQuery, querier, pathChunks, schema }) {
       // middlewares pertaining to query params
       ...paramStack({ schema, rootType, requestQuery }),
       // the query runner itself
-      query => querier({ get: query }),
+      function*(query) {
+        return querier({ get: query });
+      },
     ];
 
-    const result = await pipeMw(baseGraph, stack);
+    const result = await finalizablePipe(stack)(baseGraph);
 
     return { get: { rootType, result } };
   }
@@ -84,7 +86,7 @@ export async function get({ requestQuery, querier, pathChunks, schema }) {
       relationships: {},
     };
 
-    const wrapMw = async (relatedQuery, _next) => {
+    const wrapMw = async function*(relatedQuery, _next, finalize) {
       const query = {
         type: rootType,
         relationships: { [relationshipName]: relatedQuery },
@@ -94,7 +96,7 @@ export async function get({ requestQuery, querier, pathChunks, schema }) {
       const result = await querier({ get: query });
 
       if (result === null) {
-        return { error: { code: 404, messages: ['root resource does not exist'] } };
+        return finalize({ error: { code: 404, messages: ['root resource does not exist'] } });
       }
 
       return {
@@ -107,7 +109,7 @@ export async function get({ requestQuery, querier, pathChunks, schema }) {
 
     const paramMws = paramStack({ schema, rootType: relationshipDefinition.type, requestQuery });
 
-    return pipeMw(relatedGraph, [...paramMws, wrapMw]);
+    return finalizablePipe([...paramMws, wrapMw])(relatedGraph);
   }
 
   async function relationship(rootType, rootResourceId, relationshipName) {
@@ -147,7 +149,7 @@ function paramStack({ requestQuery, schema, rootType }) {
 }
 
 function includeHandler({ schema, rootType, paramValue }) {
-  return async function(graph, next) {
+  return async function*(graph, next) {
     const relationshipPaths = paramValue.split(',').map(p => p.split('.'));
 
     const walkToRelated = (resourceType, relationshipPath) => {
@@ -172,7 +174,7 @@ function includeHandler({ schema, rootType, paramValue }) {
       {}
     );
 
-    return await next({ ...graph, relationships });
+    return yield next({ ...graph, relationships });
   };
 }
 
@@ -183,8 +185,8 @@ function fieldsHandler({ paramValue }) {
     return { ...filters, [name]: attrs => pick(attrs, paramValue[name].split(',')) };
   }, {});
 
-  return async function(graph, next) {
-    const result = await next(graph);
+  return function*(graph, next) {
+    const result = yield next(graph);
 
     return mapResult(result, resource => ({
       ...resource,
