@@ -1,5 +1,6 @@
-import { pipeThru, mapResult, pipeMw, pick } from '../lib/utils';
+import { mapResult, pick } from '../lib/utils';
 import { finalizablePipe } from '../lib/finalizable-pipe';
+import { tag } from '../lib/element-tags';
 
 /*
   possible params:
@@ -50,7 +51,7 @@ export async function get({ requestQuery, querier, pathChunks, schema }) {
     case 4:
       return relationship(rootType, resourceId, rel);
     default:
-      return { error: 'Bad URL format' };
+      return tag('error', 'Bad URL format');
   }
 
   // helpers
@@ -73,7 +74,7 @@ export async function get({ requestQuery, querier, pathChunks, schema }) {
 
     const result = await finalizablePipe(stack)(baseGraph);
 
-    return { get: { rootType, result } };
+    return tag('query-result', { rootType, result });
   }
 
   async function related(rootType, rootResourceId, relationshipName) {
@@ -96,15 +97,13 @@ export async function get({ requestQuery, querier, pathChunks, schema }) {
       const result = await querier({ get: query });
 
       if (result === null) {
-        return finalize({ error: { code: 404, messages: ['root resource does not exist'] } });
+        return finalize(tag('error', { code: 404, messages: ['root resource does not exist'] }));
       }
 
-      return {
-        get: {
-          rootType: relationshipDefinition.type,
-          result: result.relationships[relationshipName],
-        },
-      };
+      return tag('query-result', {
+        rootType: relationshipDefinition.type,
+        result: result.relationships[relationshipName],
+      });
     };
 
     const paramMws = paramStack({ schema, rootType: relationshipDefinition.type, requestQuery });
@@ -193,4 +192,8 @@ function fieldsHandler({ paramValue }) {
       attributes: (typeFilter[resource.type] || id)(resource.attributes),
     }));
   };
+}
+
+function sortHandler({ paramValue }) {
+  const fields = paramValue.split(',');
 }

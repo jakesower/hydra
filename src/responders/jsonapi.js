@@ -1,15 +1,16 @@
 import { pluckKeys, omitKeys, mapObj, unnest } from '../lib/utils';
+import { dispatch } from '../lib/element-tags';
 
 export function JsonApiResponder(schema) {
-  return function({ action, rootType, result }) {
+  return function(result) {
     const dispatchMap = {
-      get,
+      'query-result': queryResult,
       error: handleError,
     };
 
-    console.log({ action, dispatchMap, rootType, result });
+    console.log({ dispatchMap, result });
 
-    const details = dispatchMap[action](result);
+    const details = dispatch(dispatchMap, result);
     const meta = {
       description: 'why hello there',
     };
@@ -38,7 +39,9 @@ export function JsonApiResponder(schema) {
       };
     }
 
-    function get(resultGraph) {
+    function queryResult(value) {
+      const { rootType, result: resultGraph } = value;
+
       function compressGraph(map, node) {
         const { id, type, attributes } = node;
         const def = schema.resources[type];

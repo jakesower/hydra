@@ -4,6 +4,7 @@ import rawSchema from './care-bear-schema.json';
 import { JsonQuerier } from '../src/queriers/json';
 import { JsonApiRequestHandler } from '../src/request-handlers/jsonapi';
 import { expandSchema } from '../src/lib/schema-functions';
+import { tag, untag } from '../src/lib/element-tags';
 
 const storeState = {
   objects: {
@@ -89,12 +90,13 @@ test('valid multi jsonapi request', async t => {
 
   const res = await t.context.handler(r);
 
-  t.deepEqual(res, {
-    get: {
+  t.deepEqual(
+    res,
+    tag('query-result', {
       rootType: 'bears',
       result: bearResources,
-    },
-  });
+    })
+  );
 });
 
 test('valid single jsonapi request', async t => {
@@ -105,7 +107,7 @@ test('valid single jsonapi request', async t => {
 
   const res = await t.context.handler(r);
 
-  t.deepEqual(res, { get: { rootType: 'bears', result: bearToResource('2') } });
+  t.deepEqual(res, tag('query-result', { rootType: 'bears', result: bearToResource('2') }));
 });
 
 test('invalid jsonapi request', async t => {
@@ -116,7 +118,7 @@ test('invalid jsonapi request', async t => {
 
   const res = await t.context.handler(r);
 
-  t.assert('error' in res);
+  t.deepEqual(untag(res).tag, 'error');
 });
 
 test('related resource request', async t => {
@@ -127,8 +129,9 @@ test('related resource request', async t => {
 
   const res = await t.context.handler(r);
 
-  t.deepEqual(res, {
-    get: {
+  t.deepEqual(
+    res,
+    tag('query-result', {
       rootType: 'homes',
       result: {
         type: 'homes',
@@ -139,8 +142,8 @@ test('related resource request', async t => {
         },
         relationships: {},
       },
-    },
-  });
+    })
+  );
 });
 
 test('to-one relationship request', async t => {
@@ -204,7 +207,7 @@ test('jsonapi request with a hard unrecognized param', async t => {
 
   const res = await t.context.handler(r);
 
-  t.assert('error' in res);
+  t.deepEqual(untag(res).tag, 'error');
 });
 
 test('jsonapi request with a soft unrecognized param', async t => {
@@ -215,7 +218,7 @@ test('jsonapi request with a soft unrecognized param', async t => {
 
   const res = await t.context.handler(r);
 
-  t.assert('get' in res);
+  t.deepEqual(untag(res).tag, 'query-result');
 });
 
 test('jsonapi request with an included param', async t => {
@@ -225,7 +228,7 @@ test('jsonapi request with an included param', async t => {
   });
 
   const res = await t.context.handler(r);
-  const v = res.get.result;
+  const v = untag(res).value.result;
 
   t.deepEqual(Object.keys(v.relationships), ['home', 'powers']);
   t.deepEqual(Object.keys(v.relationships.home.relationships), ['bears']);
@@ -239,9 +242,9 @@ test('jsonapi request with an included param on a related resource', async t => 
   });
 
   const res = await t.context.handler(r);
-  const v = res.get.result[0];
+  const v = untag(res).value.result[0];
 
-  t.deepEqual(res.get.rootType, 'bears');
+  t.deepEqual(untag(res).value.rootType, 'bears');
   t.deepEqual(v.relationships, {
     home: {
       attributes: { location: 'Kingdom of Caring', name: 'Care-a-Lot' },
@@ -260,8 +263,9 @@ test('sparse fieldsets', async t => {
 
   const res = await t.context.handler(r);
 
-  t.deepEqual(res, {
-    get: {
+  t.deepEqual(
+    res,
+    tag('query-result', {
       rootType: 'bears',
       result: {
         attributes: { name: 'Wish Bear', fur_color: 'turquoise' },
@@ -269,8 +273,8 @@ test('sparse fieldsets', async t => {
         type: 'bears',
         relationships: {},
       },
-    },
-  });
+    })
+  );
 });
 
 test('sparse fieldsets in related resources', async t => {
@@ -281,8 +285,9 @@ test('sparse fieldsets in related resources', async t => {
 
   const res = await t.context.handler(r);
 
-  t.deepEqual(res, {
-    get: {
+  t.deepEqual(
+    res,
+    tag('query-result', {
       rootType: 'bears',
       result: {
         attributes: { name: 'Wish Bear', fur_color: 'turquoise' },
@@ -297,8 +302,8 @@ test('sparse fieldsets in related resources', async t => {
           },
         },
       },
-    },
-  });
+    })
+  );
 });
 
 test('sparse fieldsets with a null request', async t => {
@@ -309,7 +314,7 @@ test('sparse fieldsets with a null request', async t => {
 
   const res = await t.context.handler(r);
 
-  t.deepEqual(res, { get: { result: null, rootType: 'bears' } });
+  t.deepEqual(res, tag('query-result', { result: null, rootType: 'bears' }));
 });
 
 test('sparse fieldsets with a missing related request', async t => {
@@ -320,5 +325,5 @@ test('sparse fieldsets with a missing related request', async t => {
 
   const res = await t.context.handler(r);
 
-  t.deepEqual(res.error.code, 404);
+  t.deepEqual(untag(res).value.code, 404);
 });

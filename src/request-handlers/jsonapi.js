@@ -2,6 +2,7 @@ import { parse as parseUrl } from 'url';
 import { chainPipeThru, parseQueryParams } from '../lib/utils';
 import { Ok, Err } from '../lib/either';
 import { get } from './get';
+import { tag } from '../lib/element-tags';
 
 /*
   possible params:
@@ -30,7 +31,7 @@ export async function JsonApiRequestHandler({ request, schema, querier }) {
   const result = chainPipeThru(Ok(request), [validateRequest, validateParams, validateSchema]);
 
   if (result.isErr()) {
-    return { error: result.getErrValue() };
+    return tag('error', result.getErrValue());
   }
 
   return get({ requestQuery, querier, pathChunks, schema });

@@ -20,6 +20,7 @@ export function hydra({ requestHandlers, querier, responders, schema }) {
       }
 
       const actionResult = await requestHandler({ request: req, schema, querier });
+      console.log({ actionResult });
       const response = await responder(actionResult);
 
       sendResponse(response, res);

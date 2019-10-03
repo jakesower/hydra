@@ -29,6 +29,10 @@ export function chainPipeThru(val: any, fns: ((x: any) => any)[]) {
   return fns.reduce((acc, fn) => acc.chain(fn), val);
 }
 
+export function cmp(a: Ord, b: Ord): number {
+  return a > b ? -1 : a < b ? 1 : 0;
+}
+
 export function fgo(generator) {
   const recur = ({ value, done }, gen) => {
     if (done) {
