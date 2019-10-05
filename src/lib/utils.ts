@@ -30,7 +30,7 @@ export function chainPipeThru(val: any, fns: ((x: any) => any)[]) {
 }
 
 export function cmp(a: Ord, b: Ord): number {
-  return a > b ? -1 : a < b ? 1 : 0;
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 export function fgo(generator) {
@@ -276,6 +276,88 @@ export function sortBy<T>(fn: (a: T, b: T) => number, xs: T[]): T[] {
   return sortBy(fn, lts)
     .concat(eqs)
     .concat(sortBy(fn, gts));
+}
+
+export function sortByAll<T>(fns: ((a: T, b: T) => number)[], xs: T[]): T[] {
+  if (fns.length === 0 || xs.length <= 1) {
+    return xs;
+  }
+
+  const [fn, ...restFns] = fns;
+  const [first, ...rest] = xs;
+
+  let lts: T[] = [];
+  let gts: T[] = [];
+  let eqs: T[] = [first];
+  for (let i = 0; i < rest.length; i += 1) {
+    const comp = fn(rest[i], first);
+
+    if (comp > 0) {
+      gts.push(rest[i]);
+    } else if (comp === 0) {
+      eqs.push(rest[i]);
+    } else {
+      lts.push(rest[i]);
+    }
+  }
+
+  return [...sortByAll(fns, lts), ...sortByAll(restFns, eqs), ...sortByAll(fns, gts)];
+}
+
+export function sortWith<T>(fn: (a: T) => Ord, xs: T[]): T[] {
+  if (xs.length === 0) {
+    return [];
+  }
+  const first = xs[0];
+  const fx = fn(first);
+  const rest = xs.slice(1);
+  let lts: T[] = [];
+  let gts: T[] = [];
+  let eqs: T[] = [first];
+  for (let i = 0; i < rest.length; i += 1) {
+    const fy = fn(rest[i]);
+
+    if (fy > fx) {
+      gts.push(rest[i]);
+    } else if (fy < fx) {
+      lts.push(rest[i]);
+    } else {
+      eqs.push(rest[i]);
+    }
+  }
+
+  return sortWith(fn, lts)
+    .concat(eqs)
+    .concat(sortWith(fn, gts));
+}
+
+export function sortWithAll<T>(fns: ((a: T) => Ord)[], xs: T[]): T[] {
+  if (fns.length === 0 || xs.length <= 1) {
+    return xs;
+  }
+
+  const fn = fns[0];
+  const restFns = fns.slice(1);
+  const first = xs[0];
+  const fx = fn(first);
+  const rest = xs.slice(1);
+  let lts: T[] = [];
+  let gts: T[] = [];
+  let eqs: T[] = [first];
+  for (let i = 0; i < rest.length; i += 1) {
+    // TODO: reduce this over fns (start with 0, exit on non-zero)
+    const fy = fn(rest[i]);
+
+    if (fy > fx) {
+      gts.push(rest[i]);
+    } else if (fy < fx) {
+      lts.push(rest[i]);
+    } else {
+      eqs.push(rest[i]);
+    }
+  }
+
+  return [...sortWithAll(fns, lts), ...sortWithAll(restFns, eqs), ...sortWithAll(fns, gts)];
 }
 
 export function uniq<T>(xs: T[]): T[] {

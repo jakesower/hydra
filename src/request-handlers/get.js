@@ -1,4 +1,4 @@
-import { mapResult, pick } from '../lib/utils';
+import { mapResult, pick, sortWithAll, sortByAll, cmp } from '../lib/utils';
 import { finalizablePipe } from '../lib/finalizable-pipe';
 import { tag } from '../lib/element-tags';
 
@@ -130,6 +130,7 @@ export async function get({ requestQuery, querier, pathChunks, schema }) {
 const handlerMiddlewares = {
   include: includeHandler,
   fields: fieldsHandler,
+  sort: sortHandler,
 };
 
 // this function figures out which query parameters have been passed as part of
@@ -194,6 +195,19 @@ function fieldsHandler({ paramValue }) {
   };
 }
 
+// Only sortable on the base resource
 function sortHandler({ paramValue }) {
   const fields = paramValue.split(',');
+  const fns = fields.map(field => {
+    const restProp = field.slice(1);
+    return field[0] === '-'
+      ? (a, b) => cmp(b.attributes[restProp], a.attributes[restProp])
+      : (a, b) => cmp(a.attributes[field], b.attributes[field]);
+  });
+
+  return function*(graph, next) {
+    const result = yield next(graph);
+
+    return sortByAll(fns, result);
+  };
 }

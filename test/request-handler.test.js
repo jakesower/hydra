@@ -327,3 +327,16 @@ test('sparse fieldsets with a missing related request', async t => {
 
   t.deepEqual(untag(res).value.code, 404);
 });
+
+test('sorted request', async t => {
+  const r = createRequest({
+    method: 'GET',
+    url: '/bears?sort=-fur_color,name',
+  });
+
+  const res = await t.context.handler(r);
+  const { value, tag } = untag(res);
+
+  t.deepEqual(tag, 'query-result');
+  t.deepEqual(value.result.map(r => r.id), ['3', '1', '2', '5']);
+});

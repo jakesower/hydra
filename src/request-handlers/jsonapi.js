@@ -52,7 +52,7 @@ export async function JsonApiRequestHandler({ request, schema, querier }) {
   }
 
   function validateParams(request) {
-    const supportedParams = ['include', 'fields'];
+    const supportedParams = ['include', 'fields', 'sort'];
     const { query } = parseUrl(request.url, true);
     const requestQuery = parseQueryParams(query);
     const testKey = k => /^[a-z]+$/.test(k.split(/[^-a-zA-Z_]/)[0]);
