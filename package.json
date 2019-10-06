@@ -26,9 +26,13 @@
     "concurrently": "^4.1.0",
     "mkdirp": "^0.5.1",
     "node-mocks-http": "^1.7.5",
-    "ts-node": "^8.1.0"
+    "ts-node": "^8.1.0",
+    "typescript": "^3.6.3"
   },
   "dependencies": {
+    "@polygraph/memory-store": "0.0.1",
+    "@polygraph/schema-utils": "0.0.2",
+    "@polygraph/utils": "^0.0.0",
     "ajv": "^6.10.2",
     "ejs": "^2.6.1",
     "sqlite3": "^4.0.8",

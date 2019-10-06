@@ -1,4 +1,4 @@
-import { mapResult, pick, sortWithAll, sortByAll, cmp } from '../lib/utils';
+import { mapResult, pick, sortByAll, cmp } from '@polygraph/utils';
 import { finalizablePipe } from '../lib/finalizable-pipe';
 import { tag } from '../lib/element-tags';
 

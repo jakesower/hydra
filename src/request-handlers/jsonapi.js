@@ -1,5 +1,5 @@
 import { parse as parseUrl } from 'url';
-import { chainPipeThru, parseQueryParams } from '../lib/utils';
+import { chainPipeThru, parseQueryParams } from '@polygraph/utils';
 import { Ok, Err } from '../lib/either';
 import { get } from './get';
 import { tag } from '../lib/element-tags';

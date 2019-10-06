@@ -2,7 +2,7 @@
 // import { readFileSync } from 'fs';
 // import { HydraError, HydraResponse, Schema } from '../types';
 // import { Either } from '../lib/either';
-// import { mapObj } from '../lib/utils';
+// import { mapObj } from '@polygraph/utils';
 
 // const resourceTemplate = readFileSync(__dirname + '/html/resource.ejs', 'utf8');
 

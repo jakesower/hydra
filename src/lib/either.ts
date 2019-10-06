@@ -1,4 +1,4 @@
-import { zipObj } from './utils';
+import { zipObj } from '@polygraph/utils';
 
 interface Eith<E, O> {
   chain<T>(fn: (value: O) => Either<E, T>): Either<E, T>;

@@ -1,4 +1,4 @@
-import { xprod, mergeAll } from './lib/utils';
+import { xprod, mergeAll } from '@polygraph/utils';
 
 export function hydra({ requestHandlers, querier, responders, schema }) {
   return async (req, res) => {

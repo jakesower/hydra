@@ -1,7 +1,7 @@
 'use strict';
 Object.defineProperty(exports, '__esModule', { value: true });
 const schema_functions_1 = require('../lib/schema-functions');
-const utils_1 = require('../lib/utils');
+const utils_1 = require('@polygraph/utils');
 function JsonQuerier(schema, baseState) {
   const baseObjects = utils_1.fillObject(schema_functions_1.resourceNames(schema), {});
   const baseRelationships = utils_1.fillObject(

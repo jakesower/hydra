@@ -1,7 +1,7 @@
 // import { HydraError, Schema, QueryGraph, ResultGraph } from '../types';
 // import { Either, Ok } from '../lib/either';
 // import { Database } from 'sqlite3';
-// import { appendKeys, uniq, unnest } from '../lib/utils';
+// import { appendKeys, uniq, unnest } from '@polygraph/utils';
 // export function SqliteQuerier(db: Database) {
 //   return async function(
 //     queryGraph: QueryGraph,

@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const url_1 = require("url");
-const utils_1 = require("../lib/utils");
+const utils_1 = require("@polygraph/utils");
 const hydra_utils_1 = require("../lib/hydra-utils");
 const either_1 = require("../lib/either");
 const v4_1 = __importDefault(require("uuid/v4"));

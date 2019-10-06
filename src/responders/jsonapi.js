@@ -1,4 +1,4 @@
-import { pluckKeys, omitKeys, mapObj, unnest } from '../lib/utils';
+import { pluckKeys, omitKeys, mapObj, unnest } from '@polygraph/utils';
 import { dispatch } from '../lib/element-tags';
 
 export function JsonApiResponder(schema) {
