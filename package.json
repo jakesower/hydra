@@ -33,7 +33,7 @@
     "@polygraph/memory-store": "0.0.1",
     "@polygraph/schema-utils": "0.0.2",
     "@polygraph/utils": "^0.0.0",
-    "ajv": "^6.10.2",
+    "ajv": "^6.12.3",
     "ejs": "^2.6.1",
     "sqlite3": "^4.0.8",
     "uuid": "^3.3.2"
